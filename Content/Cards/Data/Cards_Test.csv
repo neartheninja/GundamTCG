@@ -1,0 +1,5 @@
+RowName,Instance ID,Card ID,Card Name,Card Type,Color,Cost,Power,Counter,Life,Card Text,Is Rested,Card Art
+Don,0,Don,Don,DON,0,0,0,0,0,,False,/Game/Cards/Don/Don.Don
+EB01-001,0,EB01-001,EB01-001,CHARACTER,0,0,0,0,0,,False,/Game/Cards/EB01/EB01-001.EB01-001
+EB01-002,0,EB01-002,EB01-002,CHARACTER,0,0,0,0,0,,False,/Game/Cards/EB01/EB01-002.EB01-002
+

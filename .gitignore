@@ -1,0 +1,95 @@
+# Unreal Engine Build and Runtime Files
+Binaries/
+Intermediate/
+DerivedDataCache/
+Saved/
+
+# Visual Studio Files
+.vs/
+*.sln
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+*.suo
+*.opensdf
+*.sdf
+*.VC.db
+*.VC.VC.opendb
+
+# Visual Studio Code
+.vscode/
+*.code-workspace
+
+# Rider
+.idea/
+*.sln.iml
+
+# Claude Code
+.claude/
+
+# Unreal Editor Config (User Preferences)
+Config/Layouts/
+Config/DefaultEditor.ini
+Config/UserSettings/
+
+# OS Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Temporary Files
+*.tmp
+*.temp
+*.bak
+*.backup
+*~
+
+# Log Files
+*.log
+
+# Compiled Object Files
+*.obj
+*.o
+*.ko
+*.elf
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic Libraries
+*.so
+*.dylib
+*.dll
+
+# Compiled Static Libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+
+# Debug Files
+*.pdb
+*.ilk
+*.exp
+
+# Package Files
+*.pak
+*.rar
+*.zip
+*.tar
+*.gz
+*.7z
+
+# Local ignore file (if you want to keep personal ignores)
+.ignore
