@@ -4,11 +4,22 @@
 #include "TCGPlayerController.h"
 #include "TCGGameMode.h"
 #include "TCGPlayerState.h"
+#include "Blueprint/UserWidget.h"
+#include "UObject/ConstructorHelpers.h"
+#include "TCGHandWidget.h"
 
 ATCGPlayerController::ATCGPlayerController()
 {
     bReplicates = true;
     bShowMouseCursor = true; // Show cursor for UI interactions
+    HandWidget = nullptr;
+
+    // Auto-assign WBP_TCG_Hand if it exists in /Game
+    static ConstructorHelpers::FClassFinder<UUserWidget> HandWidgetBP(TEXT("/Game/WBP_TCG_Hand"));
+    if (HandWidgetBP.Succeeded())
+    {
+        HandWidgetClass = HandWidgetBP.Class;
+    }
 }
 
 void ATCGPlayerController::BeginPlay()
@@ -19,11 +30,79 @@ void ATCGPlayerController::BeginPlay()
     TCGGameMode = Cast<ATCGGameMode>(GetWorld()->GetAuthGameMode());
     TCGPlayerState = Cast<ATCGPlayerState>(PlayerState);
 
-    UE_LOG(LogTemp, Log, TEXT("TCGPlayerController: BeginPlay (Role: %s)"),
-        (GetLocalRole() == ROLE_Authority) ? TEXT("Server") : TEXT("Client"));
+    UE_LOG(LogTemp, Log, TEXT("TCGPlayerController: BeginPlay (Role: %s, IsLocal: %s)"),
+        (GetLocalRole() == ROLE_Authority) ? TEXT("Server") : TEXT("Client"),
+        IsLocalController() ? TEXT("YES") : TEXT("NO"));
 
-    // Set input mode for UI
-    SetInputMode(FInputModeGameAndUI());
+    // Only spawn UI on the local client
+    if (!IsLocalController())
+    {
+        UE_LOG(LogTemp, Log, TEXT("Not local controller, skipping UI creation"));
+        return;
+    }
+
+    // Create hand widget
+    if (HandWidgetClass)
+    {
+        UE_LOG(LogTemp, Log, TEXT("Creating hand widget from class..."));
+        HandWidget = CreateWidget<UUserWidget>(this, HandWidgetClass);
+
+        if (HandWidget)
+        {
+            UE_LOG(LogTemp, Warning, TEXT("Hand widget created successfully! Adding to viewport..."));
+            HandWidget->AddToViewport(999);
+
+            // Enable mouse cursor and set input mode
+            bShowMouseCursor = true;
+
+            FInputModeGameAndUI InputMode;
+            InputMode.SetHideCursorDuringCapture(false);
+            InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+            SetInputMode(InputMode);
+
+            UE_LOG(LogTemp, Warning, TEXT("Hand widget added to viewport with mouse cursor enabled"));
+
+            // If this hand widget is our C++ widget, push current hand data once
+            if (UTCGHandWidget* TCGHand = Cast<UTCGHandWidget>(HandWidget))
+            {
+                if (TCGPlayerState)
+                {
+                    TCGHand->UpdateHandDisplay(TCGPlayerState->Hand);
+                }
+            }
+
+            // Subscribe to PlayerState hand updates so UI refreshes after GameMode seeds data
+            if (TCGPlayerState)
+            {
+                TCGPlayerState->OnHandUpdatedEvent.AddDynamic(this, &ATCGPlayerController::HandleOnHandUpdated);
+            }
+        }
+        else
+        {
+            UE_LOG(LogTemp, Error, TEXT("Failed to create hand widget!"));
+        }
+    }
+    else
+    {
+        UE_LOG(LogTemp, Warning, TEXT("HandWidgetClass is not set in PlayerController!"));
+    }
+}
+
+void ATCGPlayerController::HandleOnHandUpdated()
+{
+    if (!IsLocalController())
+    {
+        return;
+    }
+
+    if (UTCGHandWidget* TCGHand = Cast<UTCGHandWidget>(HandWidget))
+    {
+        if (TCGPlayerState)
+        {
+            UE_LOG(LogTemp, Log, TEXT("UI: Refreshing hand display (%d cards)"), TCGPlayerState->Hand.Num());
+            TCGHand->UpdateHandDisplay(TCGPlayerState->Hand);
+        }
+    }
 }
 
 // ===== CLIENT → SERVER REQUESTS =====

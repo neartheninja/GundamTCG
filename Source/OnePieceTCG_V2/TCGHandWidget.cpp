@@ -6,6 +6,7 @@
 #include "Blueprint/WidgetTree.h"
 #include "Components/Button.h"
 #include "Components/Image.h"
+#include "UObject/ConstructorHelpers.h"
 
 UTCGHandWidget::UTCGHandWidget(const FObjectInitializer& ObjectInitializer)
     : Super(ObjectInitializer)
@@ -21,6 +22,13 @@ UTCGHandWidget::UTCGHandWidget(const FObjectInitializer& ObjectInitializer)
     HoverAnimationDuration = 0.2f;
     SelectedCardIndex = -1;
     SelectedCardTint = FLinearColor(1.0f, 1.0f, 0.5f, 1.0f);
+
+    // Default card widget class if not set in BP
+    static ConstructorHelpers::FClassFinder<UUserWidget> CardBP(TEXT("/Game/WBP_TCG_Card"));
+    if (CardBP.Succeeded())
+    {
+        CardWidgetClass = CardBP.Class;
+    }
 }
 
 void UTCGHandWidget::NativeConstruct()
@@ -142,6 +150,8 @@ void UTCGHandWidget::RebuildHandDisplay()
     CardContainer->ClearChildren();
     SpawnedCardWidgets.Empty();
 
+    UE_LOG(LogTemp, Log, TEXT("RebuildHandDisplay: Spawning %d card widgets"), HandCards.Num());
+
     // Spawn new card widgets for each card in hand
     for (int32 i = 0; i < HandCards.Num(); i++)
     {
@@ -159,6 +169,14 @@ void UTCGHandWidget::RebuildHandDisplay()
                 BoxSlot->SetHorizontalAlignment(HAlign_Center);
                 BoxSlot->SetVerticalAlignment(VAlign_Bottom);
             }
+            else
+            {
+                UE_LOG(LogTemp, Warning, TEXT("Failed to add card widget to CardContainer at index %d"), i);
+            }
+        }
+        else
+        {
+            UE_LOG(LogTemp, Warning, TEXT("SpawnCardWidget returned null at index %d"), i);
         }
     }
 }
@@ -192,6 +210,11 @@ UUserWidget* UTCGHandWidget::SpawnCardWidget(const FCardData& CardData, int32 Ca
         FSetCardDataParams Params;
         Params.CardData = CardData;
         CardWidget->ProcessEvent(SetCardDataFunc, &Params);
+        UE_LOG(LogTemp, Verbose, TEXT("Called SetCardData on card widget: %s"), *CardData.CardName);
+    }
+    else
+    {
+        UE_LOG(LogTemp, Verbose, TEXT("SetCardData function not found on card widget class"));
     }
 
     // Setup click handler

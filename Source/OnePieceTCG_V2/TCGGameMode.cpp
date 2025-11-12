@@ -21,6 +21,7 @@ ATCGGameMode::ATCGGameMode()
     ActivePlayerID = 0;
     bGameInProgress = false;
     bAttackInProgress = false;
+    bAllowSoloInPIE = true;
 }
 
 void ATCGGameMode::BeginPlay()
@@ -63,10 +64,18 @@ void ATCGGameMode::InitializeGame()
         PlayerStates.Add(*It);
     }
 
+    // Allow solo testing in PIE (Play in Editor) or when explicitly enabled
     if (PlayerStates.Num() < 2)
     {
-        UE_LOG(LogTemp, Error, TEXT("Not enough players! Need 2, have %d"), PlayerStates.Num());
-        return;
+        if (GIsEditor || bAllowSoloInPIE)
+        {
+            UE_LOG(LogTemp, Warning, TEXT("Solo override - proceeding with %d player(s)"), PlayerStates.Num());
+        }
+        else
+        {
+            UE_LOG(LogTemp, Error, TEXT("Not enough players! Need 2, have %d"), PlayerStates.Num());
+            return;
+        }
     }
 
     // Assign player IDs
@@ -76,8 +85,41 @@ void ATCGGameMode::InitializeGame()
         UE_LOG(LogTemp, Log, TEXT("Assigned Player ID %d"), i);
     }
 
+    // Seed basic test data so solo PIE runs don't error
+    for (ATCGPlayerState* PS : PlayerStates)
+    {
+        if (!PS) continue;
+        PS->DonDeck.Empty();
+        for (int32 d = 0; d < 10; ++d)
+        {
+            FCardData Don;
+            Don.CardName = TEXT("DON");
+            Don.CardType = ECardType::DON;
+            Don.CurrentZone = ECardZone::DON_DECK;
+            Don.OwnerPlayerID = PS->TCGPlayerID;
+            PS->DonDeck.Add(Don);
+        }
+        PS->OnRep_DonDeck();
+
+        // Give a small starter hand for testing
+        PS->Hand.Empty();
+        for (int32 h = 0; h < 5; ++h)
+        {
+            FCardData C;
+            C.CardID = FString::Printf(TEXT("TEST_CHAR_%d"), h+1);  // Add CardID!
+            C.CardName = FString::Printf(TEXT("Test Character %d"), h+1);
+            C.CardType = ECardType::CHARACTER;
+            C.Power = 3000 + h * 1000;
+            C.Cost = 2;
+            C.CurrentZone = ECardZone::HAND;
+            C.OwnerPlayerID = PS->TCGPlayerID;
+            C.InstanceID = 100 + h;
+            PS->Hand.Add(C);
+        }
+        PS->OnRep_Hand();
+    }
+
     // TODO: Load decks from data tables or JSON
-    // For now, you can create test decks here
 
     bGameInProgress = true;
     TurnNumber = 1;

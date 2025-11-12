@@ -278,6 +278,23 @@ Get Player State → Get Hand
 - Check that `On Mouse Enter/Leave` events are bound
 - Verify the card widget has `Visibility: Visible` (not Hit Test Invisible)
 
+### Issue: Cards Spawn But Are Blank / "Row not found: {CardID}"
+**Cause:** Card widgets are created, but the card ID/DataTable aren’t provided to the widget, so the data lookup fails.
+**Solution:**
+- In `WBP_TCG_Card`:
+  - Create function `SetCardData(FCardData CardData)` and populate UI (Name/Power/Image).
+  - Expose on Spawn (Instance Editable) variables:
+    - `CardID` (Name)
+    - `CardDatabase` (Data Table) → assign your `Cards_Test` table by default.
+  - Remove any `PreConstruct → RefreshCard` calls that run before variables are set.
+- In `WBP_TCG_Hand` (or the place where cards are created):
+  - When spawning each card widget, pass:
+    - `CardID` = the row name you want (e.g., from `Cards_Test` Out Row Names[Index]).
+    - `CardDatabase` = `Cards_Test` (the Data Table asset).
+  - Then call `SetCardData()` (if not using Expose on Spawn data binding) or rely on it being called by C++.
+
+Result: spawned cards resolve their data from the Data Table and display correctly.
+
 ### Issue: Compilation Errors
 **Solution:**
 - Check that `TCGTypes.h` exists and is included

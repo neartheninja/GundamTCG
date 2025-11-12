@@ -43,6 +43,10 @@ public:
     UPROPERTY(BlueprintReadOnly, Category = "Game State")
     FAttackData CurrentAttack;
 
+    // Allow running with a single local player during testing
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Game State")
+    bool bAllowSoloInPIE;
+
     // ===== GAME FLOW FUNCTIONS =====
 
     UFUNCTION(BlueprintCallable, Category = "Game Flow")

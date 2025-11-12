@@ -8,8 +8,10 @@
 #include "TCGTypes.h"
 #include "TCGPlayerState.generated.h"
 
-UCLASS()
-class ATCGPlayerState : public APlayerState
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnHandUpdatedNative);
+
+UCLASS(BlueprintType, Blueprintable)
+class ONEPIECETCG_V2_API ATCGPlayerState : public APlayerState
 {
     GENERATED_BODY()
 
@@ -149,6 +151,10 @@ public:
 
     UFUNCTION(BlueprintImplementableEvent, Category = "Events")
     void OnHandUpdated();
+
+    // Native multicast for C++/BP bindings (UI can subscribe)
+    UPROPERTY(BlueprintAssignable, Category = "Events")
+    FOnHandUpdatedNative OnHandUpdatedEvent;
 
     UFUNCTION(BlueprintImplementableEvent, Category = "Events")
     void OnLifeUpdated();

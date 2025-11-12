@@ -10,7 +10,7 @@ ATCGPlayerState::ATCGPlayerState()
     // Enable replication
     bReplicates = true;
     bAlwaysRelevant = true;
-    NetUpdateFrequency = 10.0f;
+    SetNetUpdateFrequency(10.0f);
 
     // Initialize defaults
     TCGPlayerID = 0;
@@ -492,6 +492,7 @@ void ATCGPlayerState::OnRep_Hand()
 {
     UE_LOG(LogTemp, Verbose, TEXT("Player %d: Hand updated (%d cards)"), TCGPlayerID, Hand.Num());
     OnHandUpdated(); // Trigger Blueprint event
+    OnHandUpdatedEvent.Broadcast();
 }
 
 void ATCGPlayerState::OnRep_Deck()

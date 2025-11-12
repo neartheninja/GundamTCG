@@ -15,7 +15,7 @@ class UUserWidget;
  * Widget that displays player's hand of cards in a horizontal layout
  * Supports dynamic card spawning, hover effects, and card selection
  */
-UCLASS()
+UCLASS(BlueprintType, Blueprintable)
 class ONEPIECETCG_V2_API UTCGHandWidget : public UUserWidget
 {
     GENERATED_BODY()

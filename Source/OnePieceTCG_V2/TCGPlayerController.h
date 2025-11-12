@@ -11,6 +11,7 @@
 // Forward declarations
 class ATCGGameMode;
 class ATCGPlayerState;
+class UUserWidget;
 
 UCLASS()
 class ONEPIECETCG_V2_API ATCGPlayerController : public APlayerController
@@ -29,6 +30,14 @@ public:
 
     UPROPERTY(BlueprintReadOnly, Category = "References")
     ATCGPlayerState* TCGPlayerState;
+
+    // ===== UI WIDGETS =====
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "UI")
+    TSubclassOf<UUserWidget> HandWidgetClass;
+
+    UPROPERTY(BlueprintReadOnly, Category = "UI")
+    UUserWidget* HandWidget;
 
     // ===== CLIENT → SERVER REQUESTS =====
 
@@ -101,4 +110,8 @@ public:
 
     UFUNCTION(BlueprintImplementableEvent, Category = "UI Events")
     void OnShowErrorMessage(const FString& ErrorMessage);
+
+private:
+    UFUNCTION()
+    void HandleOnHandUpdated();
 };
