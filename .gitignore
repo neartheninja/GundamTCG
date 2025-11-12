@@ -48,6 +48,7 @@ desktop.ini
 *.bak
 *.backup
 *~
+nul
 
 # Log Files
 *.log

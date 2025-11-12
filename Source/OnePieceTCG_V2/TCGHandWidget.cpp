@@ -6,6 +6,7 @@
 #include "Blueprint/WidgetTree.h"
 #include "Components/Button.h"
 #include "Components/Image.h"
+#include "UObject/UnrealType.h"
 #include "UObject/ConstructorHelpers.h"
 
 UTCGHandWidget::UTCGHandWidget(const FObjectInitializer& ObjectInitializer)
@@ -194,6 +195,16 @@ UUserWidget* UTCGHandWidget::SpawnCardWidget(const FCardData& CardData, int32 Ca
     {
         UE_LOG(LogTemp, Error, TEXT("Failed to create card widget!"));
         return nullptr;
+    }
+
+    // If the card widget defines an exposed int variable named "CardIndex",
+    // set it here so the BP can use it for click handling.
+    {
+        FProperty* Prop = CardWidget->GetClass()->FindPropertyByName(FName("CardIndex"));
+        if (FIntProperty* IntProp = CastField<FIntProperty>(Prop))
+        {
+            IntProp->SetPropertyValue_InContainer(CardWidget, CardIndex);
+        }
     }
 
     // Set the card data on the widget
