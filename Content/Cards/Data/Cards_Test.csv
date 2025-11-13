@@ -1,5 +1,9 @@
-RowName,Instance ID,Card ID,Card Name,Card Type,Color,Cost,Power,Counter,Life,Card Text,Is Rested,Card Art
-Don,0,Don,Don,DON,0,0,0,0,0,,False,/Game/Cards/Don/Don.Don
-EB01-001,0,EB01-001,EB01-001,CHARACTER,0,0,0,0,0,,False,/Game/Cards/EB01/EB01-001.EB01-001
-EB01-002,0,EB01-002,EB01-002,CHARACTER,0,0,0,0,0,,False,/Game/Cards/EB01/EB01-002.EB01-002
-
+Name,CardID,CardName,CardType,Colors,Attributes,Types,Cost,Power,Life,Counter,CardText,CardArt,Keywords,bHasTrigger,EffectIDs
+ST01-013,ST01-013,"Roronoa Zoro",CHARACTER,"(Red)","()","(Straw Hat Crew)",5,6000,0,1000,"","Texture2D'/Game/Cards/ST01/ST01-013.ST01-013'","()",false,"()"
+ST01-007,ST01-007,"Nami",CHARACTER,"(Red)","()","(Straw Hat Crew)",1,2000,0,1000,"","Texture2D'/Game/Cards/ST01/ST01-007.ST01-007'","()",false,"()"
+OP01-068,OP01-068,"Jinbe",CHARACTER,"(Blue)","()","(Fish-Man, Straw Hat Crew)",4,5000,0,1000,"[Blocker] (After your opponent declares an attack, you may rest this card to make it the new target of the attack.)","Texture2D'/Game/Cards/OP01/OP01-068.OP01-068'","(Blocker)",false,"()"
+OP01-029,OP01-029,"Gum-Gum Red Roc",EVENT,"(Red)","()","(Straw Hat Crew)",1,0,0,2000,"[Counter] Up to 1 of your Leader or Character cards gains +2000 power during this battle. Then, draw 1 card and trash 1 card from your hand.","Texture2D'/Game/Cards/OP01/OP01-029.OP01-029'","()",false,"(Effect_GumGumRedRoc)"
+OP01-047,OP01-047,"Trafalgar Law",CHARACTER,"(Green)","(Supernovas)","(Heart Pirates)",4,5000,0,1000,"[On Play] Draw 2 cards and trash 1 card from your hand.","Texture2D'/Game/Cards/OP01/OP01-047.OP01-047'","()",false,"(Effect_LawOnPlay)"
+OP01-067,OP01-067,"Nico Robin",CHARACTER,"(Blue)","()","(Straw Hat Crew)",3,4000,0,1000,"[Activate: Main] [Once Per Turn] Give up to 1 of your opponent's Characters -2 cost during this turn.","Texture2D'/Game/Cards/OP01/OP01-067.OP01-067'","()",false,"(Effect_RobinActivate)"
+OP03-123,OP03-123,"Charlotte Katakuri",CHARACTER,"(Purple)","()","(Big Mom Pirates)",8,8000,0,0,"[Trigger] Play this card.","Texture2D'/Game/Cards/OP03/OP03-123.OP03-123'","()",true,"(Effect_KatakuriTrigger)"
+ST01-012,ST01-012,"Monkey.D.Luffy",LEADER,"(Red)","(Supernovas)","(Straw Hat Crew)",0,5000,5,0,"[DON!! x1] [Your Turn] [Once Per Turn] This Leader gains +1000 power until the start of your next turn.","Texture2D'/Game/Cards/ST01/ST01-012.ST01-012'","()",false,"(Effect_LuffyLeader)"
