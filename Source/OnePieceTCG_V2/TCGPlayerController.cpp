@@ -14,12 +14,8 @@ ATCGPlayerController::ATCGPlayerController()
     bShowMouseCursor = true; // Show cursor for UI interactions
     HandWidget = nullptr;
 
-    // Auto-assign WBP_TCG_Hand if it exists in /Game
-    static ConstructorHelpers::FClassFinder<UUserWidget> HandWidgetBP(TEXT("/Game/WBP_TCG_Hand"));
-    if (HandWidgetBP.Succeeded())
-    {
-        HandWidgetClass = HandWidgetBP.Class;
-    }
+    // NOTE: HandWidgetClass should be set in Blueprint defaults (BP_TCGPlayerController)
+    // Do NOT use ConstructorHelpers here as it can cause circular dependency crashes
 }
 
 void ATCGPlayerController::BeginPlay()

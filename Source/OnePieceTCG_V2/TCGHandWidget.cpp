@@ -24,12 +24,8 @@ UTCGHandWidget::UTCGHandWidget(const FObjectInitializer& ObjectInitializer)
     SelectedCardIndex = -1;
     SelectedCardTint = FLinearColor(1.0f, 1.0f, 0.5f, 1.0f);
 
-    // Default card widget class if not set in BP
-    static ConstructorHelpers::FClassFinder<UUserWidget> CardBP(TEXT("/Game/WBP_TCG_Card"));
-    if (CardBP.Succeeded())
-    {
-        CardWidgetClass = CardBP.Class;
-    }
+    // NOTE: CardWidgetClass should be set in Blueprint defaults (WBP_TCG_Hand)
+    // Do NOT use ConstructorHelpers here as it can cause circular dependency crashes
 }
 
 void UTCGHandWidget::NativeConstruct()
