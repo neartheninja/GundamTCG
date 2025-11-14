@@ -8,6 +8,7 @@
 #include "Components/Image.h"
 #include "UObject/UnrealType.h"
 #include "UObject/ConstructorHelpers.h"
+#include "Engine/DataTable.h"
 
 UTCGHandWidget::UTCGHandWidget(const FObjectInitializer& ObjectInitializer)
     : Super(ObjectInitializer)
@@ -203,6 +204,44 @@ UUserWidget* UTCGHandWidget::SpawnCardWidget(const FCardData& CardData, int32 Ca
         }
     }
 
+    // Try to load card data from DataTable first, with fallback to passed-in FCardData
+    FCardData DataToUse = CardData; // Start with fallback data
+    bool bUsedDataTable = false;
+
+    // Attempt DataTable lookup if CardID is set
+    if (!CardData.CardID.IsEmpty())
+    {
+        FCardDefinition FoundDefinition;
+        FName CardIDAsName = FName(*CardData.CardID);
+
+        if (LookupCardDefinition(CardIDAsName, FoundDefinition))
+        {
+            // Successfully found in DataTable - convert FCardDefinition to FCardData
+            DataToUse.CardID = FoundDefinition.CardID.ToString();
+            DataToUse.CardName = FoundDefinition.CardName.ToString();
+            DataToUse.CardType = FoundDefinition.CardType;
+            DataToUse.Cost = FoundDefinition.Cost;
+            DataToUse.Power = FoundDefinition.Power;
+            DataToUse.Counter = FoundDefinition.Counter;
+            DataToUse.CardText = FoundDefinition.CardText;
+            DataToUse.CardArt = FoundDefinition.CardArt;
+
+            // Set primary color (first in array, or default if empty)
+            if (FoundDefinition.Colors.Num() > 0)
+            {
+                DataToUse.Color = FoundDefinition.Colors[0];
+            }
+
+            bUsedDataTable = true;
+            UE_LOG(LogTemp, Verbose, TEXT("SpawnCardWidget: Loaded '%s' from DataTable"), *FoundDefinition.CardName.ToString());
+        }
+    }
+
+    if (!bUsedDataTable)
+    {
+        UE_LOG(LogTemp, Verbose, TEXT("SpawnCardWidget: Using fallback FCardData for '%s'"), *CardData.CardName);
+    }
+
     // Set the card data on the widget
     // This assumes your card widget has a "SetCardData" function
     // We'll call it via Blueprint interface
@@ -215,9 +254,9 @@ UUserWidget* UTCGHandWidget::SpawnCardWidget(const FCardData& CardData, int32 Ca
         };
 
         FSetCardDataParams Params;
-        Params.CardData = CardData;
+        Params.CardData = DataToUse;
         CardWidget->ProcessEvent(SetCardDataFunc, &Params);
-        UE_LOG(LogTemp, Verbose, TEXT("Called SetCardData on card widget: %s"), *CardData.CardName);
+        UE_LOG(LogTemp, Verbose, TEXT("Called SetCardData on card widget: %s"), *DataToUse.CardName);
     }
     else
     {
@@ -251,5 +290,40 @@ void UTCGHandWidget::SetupCardClickHandler(UUserWidget* CardWidget, int32 CardIn
             // For now, we'll leave this to be implemented in Blueprint
             break;
         }
+    }
+}
+
+bool UTCGHandWidget::LookupCardDefinition(FName CardID, FCardDefinition& OutDefinition) const
+{
+    // Check if DataTable is set
+    if (!CardDatabase)
+    {
+        // Only log this once per session
+        static bool bLoggedNoDatabase = false;
+        if (!bLoggedNoDatabase)
+        {
+            UE_LOG(LogTemp, Warning, TEXT("TCGHandWidget: CardDatabase is not set! Please assign DT_Cards_Test in the widget settings."));
+            bLoggedNoDatabase = true;
+        }
+        return false;
+    }
+
+    // Attempt to find the row by CardID
+    FCardDefinition* FoundRow = CardDatabase->FindRow<FCardDefinition>(CardID, TEXT("LookupCardDefinition"));
+
+    if (FoundRow)
+    {
+        OutDefinition = *FoundRow;
+        return true;
+    }
+    else
+    {
+        // Log warning only once per unique CardID to avoid spam
+        if (!LoggedMissingCards.Contains(CardID))
+        {
+            UE_LOG(LogTemp, Warning, TEXT("TCGHandWidget: Card '%s' not found in DataTable. Using fallback data."), *CardID.ToString());
+            LoggedMissingCards.Add(CardID);
+        }
+        return false;
     }
 }

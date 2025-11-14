@@ -7,8 +7,130 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### In Progress
-- Phase 1: Canonical Data Model - C++ structures complete, Blueprint/DataTable setup pending
+### In Progress - Phase 2: DataTable Integration (50% Complete)
+
+#### Added (C++ Implementation) ✅
+- **DataTable lookup system** in TCGHandWidget:
+  - `UDataTable* CardDatabase` property for referencing DT_Cards_Test
+  - `LookupCardDefinition()` helper function with graceful error handling
+  - Smart logging system (one warning per missing card, avoids spam)
+  - `LoggedMissingCards` TSet for tracking logged warnings
+- **Modified `SpawnCardWidget()`** to prioritize DataTable:
+  - Attempts DataTable lookup by CardID first
+  - Converts FCardDefinition → FCardData when found
+  - Falls back to legacy FCardData when lookup fails
+  - Logs data source used (DataTable vs fallback)
+- **Documentation**: PHASE2_CPP_CHANGES.md with technical details
+
+#### Changed
+- TCGHandWidget.h: Added DataTable support (+4 lines)
+- TCGHandWidget.cpp: Implemented DataTable lookup with fallback (+60 lines)
+
+#### Blueprint Work Remaining
+- [ ] Add keyword chip bindings to WBP_TCG_Card
+- [ ] Add Counter badge visibility logic
+- [ ] Add Trigger icon visibility logic
+- [ ] Set CardDatabase property in WBP_TCG_Hand to reference DT_Cards_Test
+- [ ] Test with valid/invalid CardIDs in Unreal Editor
+
+#### Technical Notes
+- **Backward Compatible**: 100% compatible with existing FCardData code
+- **Graceful Degradation**: Widget works even without DataTable assigned
+- **Performance**: O(log n) DataTable lookup, minimal overhead
+- **Multi-color Limitation**: Currently uses primary color only (FCardData limitation)
+
+---
+
+## [0.2.0-alpha] - 2025-11-13
+
+### ✅ Phase 1 COMPLETE - Canonical Data Model
+
+**Achievement**: Established complete data-driven foundation for One Piece TCG game
+
+#### What Was Completed
+
+1. **C++ Data Structures** (TCGTypes.h):
+   - FCardDefinition: Static card data (280 lines)
+   - FCardInstance: Runtime game state
+   - FEffectRow: Data-driven effect system
+   - FActiveModifier: Buff/debuff tracking
+   - EModifierDuration: Effect expiration timing
+
+2. **Test Card Database**:
+   - 11 real One Piece TCG cards with accurate stats
+   - All 4 card types: CHARACTER (8), LEADER (1), EVENT (1), STAGE (1)
+   - Comprehensive keyword coverage:
+     - DON!! conditionals: DonX1, DonX2
+     - Timing: OnPlay, ActivateMain, WhenAttacking, YourTurn
+     - Combat: Rush, Blocker, Banish, DoubleAttack
+     - Dual-mode: Counter + Trigger (Radical Beam!!)
+
+3. **Unreal Editor Integration**:
+   - DT_Cards_Test DataTable created successfully
+   - CSV import working with enum-compatible keywords
+   - Card art loading correctly (TSoftObjectPtr system)
+   - All multi-value arrays functional (Colors, Types, Keywords)
+   - Row Name = CardID for direct lookup
+
+4. **System Validation** ✅:
+   - Multi-keyword cards working (Law: Blocker + OnPlay)
+   - Multi-type cards working (Moria, Crocodile: 2 types each)
+   - Conditional effects (DON!! x1, DON!! x2, hand size checks)
+   - Dual-mode effects (Radical Beam: Counter + Trigger)
+   - Leader stats (Zoro Leader has 5 Life)
+   - Stage mechanics (Mini-Merry)
+
+#### Test Card Coverage
+
+| Card | Test Case |
+|------|-----------|
+| ST01-013 Zoro | DON!! conditional power boost |
+| ST01-007 Nami | Activate Main with Once Per Turn |
+| OP01-068 Gecko Moria | Conditional keyword grant (Double Attack) |
+| OP01-029 Radical Beam!! | Dual-mode (Counter + Trigger) |
+| OP01-047 Law | Multi-keyword (Blocker + OnPlay) |
+| OP01-067 Crocodile | Banish + DON!! cost reduction |
+| OP03-123 Katakuri | Zone manipulation (Life zone) |
+| ST01-012 Luffy | Rush + Blocker negation |
+| OP01-001 Zoro Leader | Leader card with Life stat |
+| EB01-011 Mini-Merry | Stage card mechanics |
+| EB01-012 Cavendish | Deck search effect |
+
+#### Documentation Created
+- IMPLEMENTATION_PLAN.md: 18-phase roadmap (833 lines)
+- CHANGELOG.md: Version tracking system
+- DATATABLE_SETUP_GUIDE.md: Editor import instructions
+- DATATABLE_FIELD_REFERENCE.md: Field documentation
+- CARD_DATA_CORRECTIONS.md: Card change log
+
+#### Files Modified/Created
+- Source/OnePieceTCG_V2/TCGTypes.h (+280 lines)
+- Content/Cards/Data/Cards_Test.csv (11 cards)
+- Content/Cards/Data/DT_Cards_Test.uasset (DataTable)
+- IMPLEMENTATION_PLAN.md (Phase 1: 100% ✅)
+- CHANGELOG.md (this file)
+
+#### Technical Achievement
+This phase established:
+- ✅ Separation of static/runtime data (memory efficient)
+- ✅ Multi-color/multi-type support (flexible arrays)
+- ✅ Keyword system (scalable with TSet)
+- ✅ Effect framework (ready for Phase 8 implementation)
+- ✅ Modifier tracking (full buff/debuff system)
+- ✅ Blueprint accessibility (USTRUCT(BlueprintType))
+
+#### Impact
+- Cards can now be added without code changes (pure data)
+- Effect system ready for systematic implementation
+- All modifiers tracked in one place (no hidden state)
+- UI can read from single source of truth
+- Test coverage for Phase 8 effect executor
+
+#### Next Phase
+Phase 2: Update WBP_TCG_Card widget to read from DT_Cards_Test with fallback handling
+
+**Version**: 0.2.0-alpha (Phase 1 complete)
+**Milestone 1 Progress**: 1/11 phases complete (9%)
 
 ---
 

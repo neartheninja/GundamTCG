@@ -10,6 +10,7 @@
 
 class UHorizontalBox;
 class UUserWidget;
+class UDataTable;
 
 /**
  * Widget that displays player's hand of cards in a horizontal layout
@@ -28,6 +29,12 @@ public:
     /** The horizontal box container that holds all card widgets */
     UPROPERTY(BlueprintReadWrite, meta = (BindWidget))
     UHorizontalBox* CardContainer;
+
+    // ===== DATA TABLE REFERENCES =====
+
+    /** Card database DataTable (DT_Cards_Test) for looking up card definitions */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Data")
+    UDataTable* CardDatabase;
 
     // ===== CARD DISPLAY SETTINGS =====
 
@@ -154,4 +161,15 @@ private:
 
     /** Setup click handling for a card widget */
     void SetupCardClickHandler(UUserWidget* CardWidget, int32 CardIndex);
+
+    /**
+     * Lookup card definition from DataTable by CardID
+     * @param CardID The card identifier to look up
+     * @param OutDefinition The found card definition (if successful)
+     * @return True if card was found in DataTable, false otherwise
+     */
+    bool LookupCardDefinition(FName CardID, FCardDefinition& OutDefinition) const;
+
+    /** Set to track which CardIDs have already logged "not found" warnings (to avoid spam) */
+    mutable TSet<FName> LoggedMissingCards;
 };

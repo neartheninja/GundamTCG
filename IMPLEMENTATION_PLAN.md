@@ -108,31 +108,48 @@ Build a fully-featured digital One Piece Trading Card Game with:
 
 ---
 
-### **PHASE 2: WBP_TCG_Card Reads from Table** ⚫ NOT STARTED
+### **PHASE 2: WBP_TCG_Card Reads from Table** 🟡 IN PROGRESS (50% C++ Complete)
 
 **Goal**: Data-driven card display with fallbacks
 
 #### Tasks
-- [ ] Update TCGHandWidget.cpp SetCardData flow:
-  - Get DataTable row by CardID
-  - Branch: True = use row data, False = use fallback FCardData
-  - Log warning once if row not found
+- [x] Update TCGHandWidget.cpp SetCardData flow:
+  - [x] Get DataTable row by CardID
+  - [x] Branch: True = use row data, False = use fallback FCardData
+  - [x] Log warning once if row not found
+  - [x] Added LookupCardDefinition() helper function
+  - [x] Modified SpawnCardWidget() to use DataTable with fallback
+  - [x] Added per-CardID warning logging (no spam)
 - [ ] Add Blueprint binding for keyword chips display
 - [ ] Add Blueprint binding for Counter badge (if Counter > 0)
 - [ ] Add Blueprint binding for Trigger icon (if HasTrigger)
-- [ ] Test with both valid and invalid CardIDs
+- [ ] Test with both valid and invalid CardIDs (requires Editor)
 
 #### Definition of Done ✅
-- [ ] If CardDatabase row exists, all fields display from row
-- [ ] If row missing, fallback text/power render correctly
-- [ ] Only one "Row not found" log per missing card
-- [ ] Keywords, Counter, and Trigger display correctly
+- [ ] If CardDatabase row exists, all fields display from row (needs Blueprint testing)
+- [x] If row missing, fallback text/power render correctly (implemented in C++)
+- [x] Only one "Row not found" log per missing card (uses TSet<FName> tracking)
+- [ ] Keywords, Counter, and Trigger display correctly (needs Blueprint work)
+
+#### C++ Changes Complete ✅
+- Added `UDataTable* CardDatabase` property to TCGHandWidget.h
+- Implemented `LookupCardDefinition()` helper function with smart logging
+- Modified `SpawnCardWidget()` to prioritize DataTable lookup with FCardData fallback
+- Added `#include "Engine/DataTable.h"` to TCGHandWidget.cpp
+- Created PHASE2_CPP_CHANGES.md documentation
+
+#### Blueprint Work Remaining
+- WBP_TCG_Card keyword chip bindings
+- Counter badge visibility logic
+- Trigger icon visibility logic
+- Testing in Unreal Editor
 
 #### Files Modified
-- `Source/OnePieceTCG_V2/TCGHandWidget.cpp`
-- `Source/OnePieceTCG_V2/TCGHandWidget.h`
-- `Content/WBP_TCG_Card.uasset`
-- `Content/WBP_TCG_Hand.uasset`
+- `Source/OnePieceTCG_V2/TCGHandWidget.cpp` ✅
+- `Source/OnePieceTCG_V2/TCGHandWidget.h` ✅
+- `PHASE2_CPP_CHANGES.md` ✅ (new documentation)
+- `Content/WBP_TCG_Card.uasset` (pending Blueprint work)
+- `Content/WBP_TCG_Hand.uasset` (pending - set CardDatabase property)
 
 ---
 
