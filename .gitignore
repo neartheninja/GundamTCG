@@ -1,0 +1,135 @@
+# Unreal Engine Build and Runtime Files
+Binaries/
+Intermediate/
+DerivedDataCache/
+Saved/
+
+# Visual Studio Files
+.vs/
+*.sln
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+*.suo
+*.opensdf
+*.sdf
+*.VC.db
+*.VC.VC.opendb
+
+# Visual Studio Code
+.vscode/
+*.code-workspace
+
+# Rider
+.idea/
+*.sln.iml
+
+# Claude Code
+.claude/
+
+# Unreal Editor Config (User Preferences)
+Config/Layouts/
+Config/DefaultEditor.ini
+Config/UserSettings/
+
+# OS Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Temporary Files
+*.tmp
+*.temp
+*.bak
+*.backup
+*~
+nul
+
+# Log Files
+*.log
+
+# Compiled Object Files
+*.obj
+*.o
+*.ko
+*.elf
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic Libraries
+*.so
+*.dylib
+*.dll
+
+# Compiled Static Libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+
+# Debug Files
+*.pdb
+*.ilk
+*.exp
+
+# Package Files
+*.pak
+*.rar
+*.zip
+*.tar
+*.gz
+*.7z
+
+# Local ignore file (if you want to keep personal ignores)
+.ignore
+
+# ==================================================
+# GundamTCG Specific Ignores
+# ==================================================
+
+# One Piece TCG Legacy Assets (Prevent accidental re-adds)
+Content/Cards/OP*/
+Content/Cards/EB*/
+Content/Cards/ST*/
+Content/Cards/PRB*/
+Content/Cards/Don/
+
+# Reference Documentation (Store externally or in wiki)
+Content/ref docs/
+*.pdf
+
+# Cleanup Scripts (Developer tools, not part of game)
+cleanup_*.bat
+rename_*.bat
+
+# Git LFS Temporary Files
+.git/lfs/incomplete/
+.git/lfs/tmp/
+
+# Unreal Plugins (if added later, track selectively)
+Plugins/*/Binaries/
+Plugins/*/Intermediate/
+
+# Crash Reports
+Content/Crashes/
+
+# Shader Cache
+Content/ShaderCache/
+
+# Build Artifacts
+Build/
+
+# Generated Documentation
+Docs/Generated/
