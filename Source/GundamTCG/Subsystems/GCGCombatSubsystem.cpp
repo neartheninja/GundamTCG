@@ -3,6 +3,7 @@
 
 #include "GCGCombatSubsystem.h"
 #include "GCGKeywordSubsystem.h"
+#include "GCGLinkUnitSubsystem.h"
 #include "GundamTCG/PlayerState/GCGPlayerState.h"
 #include "GundamTCG/GameState/GCGGameState.h"
 #include "GundamTCG/Subsystems/GCGZoneSubsystem.h"
@@ -369,6 +370,9 @@ bool UGCGCombatSubsystem::DealDamageToUnit(int32 TargetInstanceID, int32 Damage,
 			// Add damage
 			BattleCard.CurrentDamage += Damage;
 
+			// FAQ Q97-99: Track damage source (battle damage vs effect damage)
+			BattleCard.LastDamageSource = EGCGDamageSource::BattleDamage;
+
 			UE_LOG(LogTemp, Log, TEXT("UGCGCombatSubsystem::DealDamageToUnit - Dealt %d damage to %s (Total: %d/%d HP)"),
 				Damage, *BattleCard.CardName.ToString(), BattleCard.CurrentDamage, BattleCard.HP);
 
@@ -420,6 +424,9 @@ bool UGCGCombatSubsystem::DealDamageToPlayer(int32 Damage, AGCGPlayerState* Defe
 	{
 		FGCGCardInstance& Base = DefendingPlayer->BaseSection[0];
 		Base.CurrentDamage += Damage;
+
+		// FAQ Q97-99: Track damage source (battle damage from combat)
+		Base.LastDamageSource = EGCGDamageSource::BattleDamage;
 
 		UE_LOG(LogTemp, Warning, TEXT("UGCGCombatSubsystem::DealDamageToPlayer - Player %d Base took %d damage (Total: %d/%d HP)"),
 			DefendingPlayer->GetPlayerID(), Damage, Base.CurrentDamage, Base.HP);
@@ -550,19 +557,13 @@ bool UGCGCombatSubsystem::HasSummoningSickness(const FGCGCardInstance& CardInsta
 		return false;
 	}
 
-	// Check for Link Unit keyword (Phase 7)
+	// Check for Link Unit keyword (Phase 9)
 	// Link Units can attack on deployment turn if paired with a Pilot
-	UGCGKeywordSubsystem* KeywordSubsystem = GetGameInstance()->GetSubsystem<UGCGKeywordSubsystem>();
-	if (KeywordSubsystem && KeywordSubsystem->IsLinkUnit(CardInstance))
+	UGCGLinkUnitSubsystem* LinkUnitSubsystem = GetGameInstance()->GetSubsystem<UGCGLinkUnitSubsystem>();
+	if (LinkUnitSubsystem && LinkUnitSubsystem->CanLinkUnitAttackThisTurn(CardInstance, GameState->TurnNumber))
 	{
-		// Find player state to check if paired
-		// Note: This is a const function so we can't easily get PlayerState
-		// For now, check if PairedCardInstanceID is set (indicates pairing)
-		if (CardInstance.PairedCardInstanceID > 0)
-		{
-			// Paired with a card - assume it's a Pilot (full validation in CanAttack)
-			return false; // No summoning sickness
-		}
+		// Link Unit is paired - no summoning sickness
+		return false;
 	}
 
 	// Has summoning sickness

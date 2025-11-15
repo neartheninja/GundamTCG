@@ -207,6 +207,25 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Player Actions|Combat")
 	void ResolveCombat();
 
+	/**
+	 * Player requests to pair a Pilot with a Link Unit (Phase 9)
+	 * @param PlayerID The player making the request
+	 * @param LinkUnitInstanceID The Link Unit to pair
+	 * @param PilotInstanceID The Pilot to pair with
+	 * @return True if pairing was successful
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Player Actions|Link Units")
+	bool RequestPairPilot(int32 PlayerID, int32 LinkUnitInstanceID, int32 PilotInstanceID);
+
+	/**
+	 * Player requests to unpair a Pilot from a Link Unit (Phase 9)
+	 * @param PlayerID The player making the request
+	 * @param LinkUnitInstanceID The Link Unit to unpair
+	 * @return True if unpairing was successful
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Player Actions|Link Units")
+	bool RequestUnpairPilot(int32 PlayerID, int32 LinkUnitInstanceID);
+
 	// ===== SETUP HELPERS =====
 
 	/**

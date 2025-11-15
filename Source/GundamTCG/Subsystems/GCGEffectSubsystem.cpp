@@ -552,6 +552,9 @@ FGCGEffectResult UGCGEffectSubsystem::OP_DealDamageToUnit(int32 Amount, int32 Ta
 			Result.DamageDealt = Amount;
 			Result.AffectedCardIDs.Add(TargetInstanceID);
 
+			// FAQ Q97-99: Track damage source (effect damage vs battle damage)
+			Unit.LastDamageSource = EGCGDamageSource::EffectDamage;
+
 			LogEffect(TEXT("DealDamageToUnit"), FString::Printf(TEXT("Dealt %d damage to %s (%d/%d HP)"),
 				Amount, *Unit.CardName.ToString(), Unit.CurrentDamage, Unit.HP));
 
