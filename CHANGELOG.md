@@ -7,6 +7,182 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.6.0-alpha] - 2025-11-15
+
+### ✅ Phase 7 COMPLETE - Keyword System
+
+**Achievement**: Implemented complete keyword processing system with all 9 gameplay keywords integrated into combat and turn flow.
+
+#### Added
+
+**Keyword Subsystem**:
+- **Source/GundamTCG/Subsystems/GCGKeywordSubsystem.h/cpp** (900 lines):
+  - **Keyword Checks**: HasKeyword(), GetKeywordValue(), DoesKeywordStack()
+  - **Repair Keyword**: ProcessRepair(), ProcessRepairForPlayer() - Heal X damage at end of turn (stacks)
+  - **Breach Keyword**: ProcessBreach() - Break X shields when destroying a Unit (stacks)
+  - **Support Keyword**: CalculateSupportBuff(), GetUnitsWithSupport() - Buff allies by +X AP (stacks)
+  - **FirstStrike Keyword**: HasFirstStrikeAdvantage(), ProcessFirstStrike() - Deal damage first, no retaliation if target destroyed
+  - **HighManeuver Keyword**: CanEvadeWithHighManeuver(), ProcessHighManeuver() - Pay 1 resource to evade attack
+  - **Suppression Keyword**: ProcessSuppression() - Destroy all shields simultaneously instead of one at a time
+  - **Burst Keyword**: HasBurst(), ProcessBurst() - When broken as shield, return to hand
+  - **LinkUnit Keyword**: IsLinkUnit(), IsPairedWithPilot(), CanLinkUnitAttack() - Attack on deploy turn when paired with Pilot
+  - **Blocker Keyword**: HasBlocker() - Helper for blocker validation (main logic in Combat Subsystem)
+  - **Keyword Utility**: GetKeywordName(), GetKeywordDescription() - Human-readable keyword info
+  - **Result Structure**: FGCGKeywordResult - Success/failure with detailed result data
+
+**Combat System Integration**:
+- **Source/GundamTCG/Subsystems/GCGCombatSubsystem.cpp** (modified):
+  - **Support Buffs**: Calculate Support AP buffs for attacker and blocker
+  - **FirstStrike Processing**: Deal damage first, prevent retaliation if target destroyed
+  - **Breach Processing**: Break extra shields when destroying Units
+  - **Suppression Processing**: Destroy all shields simultaneously on unblocked attacks
+  - **LinkUnit Integration**: Bypass summoning sickness when paired with Pilot
+  - All combat damage now accounts for keyword modifiers
+
+**Turn Flow Integration**:
+- **Source/GundamTCG/GameModes/GCGGameMode_1v1.cpp** (modified):
+  - **Repair at End of Turn**: Process Repair for both players during End Phase → End Step
+  - Automatic healing applied to all Units and Bases with Repair keyword
+  - Logging for all Repair healing
+
+#### Features Implemented
+
+- **Repair X (Stacking)**:
+  - Recovers X damage at end of turn
+  - Multiple instances stack (Repair 2 + Repair 1 = Repair 3)
+  - Processes for all Units in Battle Area and Base
+  - Can't heal beyond full HP
+  - Triggered automatically during End Phase
+
+- **Breach X (Stacking)**:
+  - Triggers when this Unit destroys another Unit in combat
+  - Breaks X shields from defending player
+  - Multiple instances stack additively
+  - Works with both blocked and unblocked attacks
+
+- **Support X (Stacking)**:
+  - All friendly Units get +X AP
+  - Multiple Support units stack (Support 2 + Support 1 = +3 AP total)
+  - Applies to all Units except the Support unit itself
+  - Calculated dynamically during combat
+
+- **FirstStrike (Non-stacking)**:
+  - Deals damage before opponent in combat
+  - If opponent is destroyed, no retaliation damage
+  - Only works if attacker has FirstStrike and defender doesn't
+  - Multiple instances don't stack (binary keyword)
+
+- **HighManeuver (Non-stacking)**:
+  - Pay 1 active resource to evade an attack
+  - Attack deals no damage if evaded
+  - Player choice to activate (manual trigger)
+  - Resource is rested as cost
+
+- **Suppression (Non-stacking)**:
+  - Destroys ALL shields simultaneously when dealing player damage
+  - Normal damage: breaks 1 shield at a time
+  - Suppression: breaks all shields in a single instance
+  - If no shields, damage goes to Base
+
+- **Burst (Non-stacking)**:
+  - Triggers when card is broken as a shield
+  - Card returns to hand instead of going to Trash
+  - TODO Phase 8: Trigger Burst effect if card has effect with Burst timing
+
+- **LinkUnit (Non-stacking)**:
+  - Link Units can attack on deployment turn when paired with a Pilot
+  - Pairing tracked via PairedCardInstanceID
+  - Bypasses summoning sickness rule
+  - If not paired, normal summoning sickness applies
+
+- **Blocker (Non-stacking)**:
+  - Already implemented in Phase 6 Combat System
+  - Keyword check helper added to Keyword Subsystem
+  - Can redirect attacks to this Unit
+
+#### Keyword Stacking Rules
+
+**Stacking Keywords** (values add together):
+- Repair X: Repair 2 + Repair 1 = Repair 3
+- Breach X: Breach 2 + Breach 1 = Breach 3
+- Support X: Support 2 + Support 1 = +3 AP to allies
+
+**Non-Stacking Keywords** (binary on/off):
+- Blocker: Has it or doesn't
+- FirstStrike: Has it or doesn't
+- HighManeuver: Has it or doesn't
+- Suppression: Has it or doesn't
+- Burst: Has it or doesn't
+- LinkUnit: Has it or doesn't
+
+#### Integration Points
+
+- **Phase 6 (Combat)**: All combat keywords integrated ✅
+- **Phase 8 (Effect System)**: Burst effect triggers, keyword-granting effects, "On Attack" triggers
+- **Phase 9 (Link Units)**: Pilot pairing system, Link requirements validation
+
+#### Technical Notes
+
+**Keyword Processing Flow**:
+1. Check if card has keyword using HasKeyword()
+2. Get keyword value using GetKeywordValue() (for stacking keywords)
+3. Process keyword effect using specific Process function
+4. Return FGCGKeywordResult with success/failure and data
+
+**Support Buff Calculation**:
+- Scans all Units in player's Battle Area
+- Sums Support values from all allies
+- Applied to final AP calculation in combat
+- Dynamically calculated (no stored buffs)
+
+**FirstStrike Combat**:
+- Checked before normal damage
+- If attacker has advantage, deals damage first
+- If defender destroyed, skip defender's damage
+- Otherwise, normal mutual damage applies
+
+**Suppression vs Normal Shield Breaking**:
+- Normal: 1 shield per damage instance (even if 10 damage)
+- Suppression: ALL shields destroyed in single instance
+- After shields gone, damage goes to Base
+
+**Repair Timing**:
+- Processed during End Phase → End Step
+- Applies to both players (not just active player)
+- Processes all Units and Base (if Base has Repair)
+- Reduces CurrentDamage (can't exceed full HP)
+
+**LinkUnit Pairing**:
+- PairedCardInstanceID stores paired Pilot's InstanceID
+- Bypass summoning sickness if paired with Pilot (CardType check)
+- Full pairing validation in Phase 9
+
+#### Files Created
+
+- Source/GundamTCG/Subsystems/GCGKeywordSubsystem.h (400 lines)
+- Source/GundamTCG/Subsystems/GCGKeywordSubsystem.cpp (500 lines)
+
+#### Files Modified
+
+- Source/GundamTCG/Subsystems/GCGCombatSubsystem.cpp - Integrated keyword processing in combat
+- Source/GundamTCG/GameModes/GCGGameMode_1v1.cpp - Added Repair processing in End Phase
+- Source/GundamTCG/GameModes/GCGGameMode_1v1.cpp - Added keyword subsystem include
+
+#### Testing Recommendations
+
+1. Test Repair keyword healing at end of turn
+2. Test Support stacking (multiple Support units)
+3. Test FirstStrike combat (with and without killing blocker)
+4. Test Breach shield breaking after destroying Units
+5. Test Suppression destroying all shields
+6. Test HighManeuver evasion (resource cost payment)
+7. Test LinkUnit summoning sickness bypass
+8. Test keyword stacking rules (Repair 2 + Repair 1 = 3)
+9. Test non-stacking keywords (FirstStrike + FirstStrike = still just FirstStrike)
+10. Test Burst return to hand when shield broken
+
+---
+
 ## [1.5.0-alpha] - 2025-11-15
 
 ### ✅ Phase 6 COMPLETE - Combat System

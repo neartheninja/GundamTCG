@@ -2,6 +2,7 @@
 // Unreal Engine 5.6 - Gundam TCG Implementation
 
 #include "GCGCombatSubsystem.h"
+#include "GCGKeywordSubsystem.h"
 #include "GundamTCG/PlayerState/GCGPlayerState.h"
 #include "GundamTCG/GameState/GCGGameState.h"
 #include "GundamTCG/Subsystems/GCGZoneSubsystem.h"
@@ -226,7 +227,17 @@ FGCGCombatResult UGCGCombatSubsystem::ResolveAttack(FGCGAttackDeclaration& Attac
 		return FGCGCombatResult(false, TEXT("Attacker not found"));
 	}
 
-	int32 AttackerAP = AttackerInstance.AP;
+	// Get Keyword Subsystem for keyword processing
+	UGCGKeywordSubsystem* KeywordSubsystem = GetGameInstance()->GetSubsystem<UGCGKeywordSubsystem>();
+
+	// Calculate Support buffs (Phase 7)
+	int32 AttackerSupportBuff = 0;
+	if (KeywordSubsystem)
+	{
+		AttackerSupportBuff = KeywordSubsystem->CalculateSupportBuff(AttackerInstance, AttackingPlayer);
+	}
+
+	int32 AttackerAP = AttackerInstance.AP + AttackerSupportBuff;
 
 	// Check if attack is blocked
 	if (Attack.BlockerInstanceID > 0)
@@ -239,28 +250,91 @@ FGCGCombatResult UGCGCombatSubsystem::ResolveAttack(FGCGAttackDeclaration& Attac
 			return FGCGCombatResult(false, TEXT("Blocker not found"));
 		}
 
-		int32 BlockerAP = BlockerInstance.AP;
+		// Calculate blocker's Support buff (Phase 7)
+		int32 BlockerSupportBuff = 0;
+		if (KeywordSubsystem)
+		{
+			BlockerSupportBuff = KeywordSubsystem->CalculateSupportBuff(BlockerInstance, DefendingPlayer);
+		}
 
-		// TODO: Check for First Strike keyword (Phase 7)
-		// TODO: Check for Support keyword (Phase 7)
+		int32 BlockerAP = BlockerInstance.AP + BlockerSupportBuff;
 
-		// Deal damage to both units
-		bool bAttackerDestroyed = DealDamageToUnit(Attack.AttackerInstanceID, BlockerAP, AttackingPlayer);
-		bool bBlockerDestroyed = DealDamageToUnit(Attack.BlockerInstanceID, AttackerAP, DefendingPlayer);
+		// Check for First Strike keyword (Phase 7)
+		bool bFirstStrikeResolved = false;
+		bool bBlockerDestroyedByFirstStrike = false;
 
-		Result.bAttackerDestroyed = bAttackerDestroyed;
-		Result.bBlockerDestroyed = bBlockerDestroyed;
+		if (KeywordSubsystem && KeywordSubsystem->HasFirstStrikeAdvantage(AttackerInstance, BlockerInstance))
+		{
+			// Process First Strike
+			FGCGKeywordResult FirstStrikeResult = KeywordSubsystem->ProcessFirstStrike(AttackerInstance, BlockerInstance, bBlockerDestroyedByFirstStrike);
+			bFirstStrikeResolved = FirstStrikeResult.bSuccess;
 
-		UE_LOG(LogTemp, Log, TEXT("UGCGCombatSubsystem::ResolveAttack - Blocked combat resolved (Attacker destroyed: %d, Blocker destroyed: %d)"),
-			bAttackerDestroyed ? 1 : 0, bBlockerDestroyed ? 1 : 0);
+			if (bBlockerDestroyedByFirstStrike)
+			{
+				// Blocker destroyed by First Strike - no retaliation
+				bool bBlockerDestroyed = DealDamageToUnit(Attack.BlockerInstanceID, AttackerAP, DefendingPlayer);
+				Result.bBlockerDestroyed = bBlockerDestroyed;
+
+				UE_LOG(LogTemp, Log, TEXT("UGCGCombatSubsystem::ResolveAttack - First Strike destroyed blocker (no retaliation)"));
+
+				// Check for Breach keyword (Phase 7)
+				if (KeywordSubsystem->HasKeyword(AttackerInstance, EGCGKeyword::Breach))
+				{
+					FGCGKeywordResult BreachResult = KeywordSubsystem->ProcessBreach(AttackerInstance, DefendingPlayer, GameState);
+					Result.ShieldsBroken += BreachResult.ShieldsBroken;
+				}
+
+				return Result;
+			}
+		}
+
+		// Normal combat (both deal damage)
+		if (!bFirstStrikeResolved)
+		{
+			bool bAttackerDestroyed = DealDamageToUnit(Attack.AttackerInstanceID, BlockerAP, AttackingPlayer);
+			bool bBlockerDestroyed = DealDamageToUnit(Attack.BlockerInstanceID, AttackerAP, DefendingPlayer);
+
+			Result.bAttackerDestroyed = bAttackerDestroyed;
+			Result.bBlockerDestroyed = bBlockerDestroyed;
+
+			UE_LOG(LogTemp, Log, TEXT("UGCGCombatSubsystem::ResolveAttack - Blocked combat resolved (Attacker destroyed: %d, Blocker destroyed: %d)"),
+				bAttackerDestroyed ? 1 : 0, bBlockerDestroyed ? 1 : 0);
+
+			// Check for Breach keyword if blocker was destroyed (Phase 7)
+			if (bBlockerDestroyed && KeywordSubsystem && KeywordSubsystem->HasKeyword(AttackerInstance, EGCGKeyword::Breach))
+			{
+				FGCGKeywordResult BreachResult = KeywordSubsystem->ProcessBreach(AttackerInstance, DefendingPlayer, GameState);
+				Result.ShieldsBroken += BreachResult.ShieldsBroken;
+			}
+		}
 	}
 	else
 	{
 		// Unblocked attack - deal damage to player
 		int32 ShieldsBroken = 0;
-		bool bPlayerLost = DealDamageToPlayer(AttackerAP, DefendingPlayer, GameState, ShieldsBroken);
+		bool bPlayerLost = false;
 
-		Result.DamageDealt = AttackerAP;
+		// Check for Suppression keyword (Phase 7)
+		if (KeywordSubsystem && KeywordSubsystem->HasKeyword(AttackerInstance, EGCGKeyword::Suppression))
+		{
+			// Suppression: Destroy all shields simultaneously
+			FGCGKeywordResult SuppressionResult = KeywordSubsystem->ProcessSuppression(AttackerInstance, DefendingPlayer, GameState);
+			ShieldsBroken = SuppressionResult.ShieldsBroken;
+			Result.DamageDealt = SuppressionResult.DamageDealt;
+
+			// Check if player lost
+			bPlayerLost = DefendingPlayer->bHasLost;
+
+			UE_LOG(LogTemp, Log, TEXT("UGCGCombatSubsystem::ResolveAttack - Suppression destroyed %d shields"),
+				ShieldsBroken);
+		}
+		else
+		{
+			// Normal player damage (one shield at a time)
+			bPlayerLost = DealDamageToPlayer(AttackerAP, DefendingPlayer, GameState, ShieldsBroken);
+			Result.DamageDealt = AttackerAP;
+		}
+
 		Result.ShieldsBroken = ShieldsBroken;
 
 		UE_LOG(LogTemp, Log, TEXT("UGCGCombatSubsystem::ResolveAttack - Unblocked attack dealt %d damage (Shields broken: %d, Player lost: %d)"),
@@ -467,8 +541,32 @@ bool UGCGCombatSubsystem::HasSummoningSickness(const FGCGCardInstance& CardInsta
 		return false;
 	}
 
-	// Unit has summoning sickness if deployed this turn
-	return CardInstance.TurnDeployed == GameState->TurnNumber;
+	// Check if deployed this turn
+	bool bDeployedThisTurn = (CardInstance.TurnDeployed == GameState->TurnNumber);
+
+	if (!bDeployedThisTurn)
+	{
+		// Not deployed this turn - no summoning sickness
+		return false;
+	}
+
+	// Check for Link Unit keyword (Phase 7)
+	// Link Units can attack on deployment turn if paired with a Pilot
+	UGCGKeywordSubsystem* KeywordSubsystem = GetGameInstance()->GetSubsystem<UGCGKeywordSubsystem>();
+	if (KeywordSubsystem && KeywordSubsystem->IsLinkUnit(CardInstance))
+	{
+		// Find player state to check if paired
+		// Note: This is a const function so we can't easily get PlayerState
+		// For now, check if PairedCardInstanceID is set (indicates pairing)
+		if (CardInstance.PairedCardInstanceID > 0)
+		{
+			// Paired with a card - assume it's a Pilot (full validation in CanAttack)
+			return false; // No summoning sickness
+		}
+	}
+
+	// Has summoning sickness
+	return true;
 }
 
 bool UGCGCombatSubsystem::HasKeyword(const FGCGCardInstance& CardInstance, EGCGKeyword Keyword) const

@@ -7,6 +7,7 @@
 #include "GundamTCG/Subsystems/GCGZoneSubsystem.h"
 #include "GundamTCG/Subsystems/GCGPlayerActionSubsystem.h"
 #include "GundamTCG/Subsystems/GCGCombatSubsystem.h"
+#include "GundamTCG/Subsystems/GCGKeywordSubsystem.h"
 #include "TimerManager.h"
 #include "Engine/World.h"
 
@@ -418,7 +419,36 @@ void AGCGGameMode_1v1::ExecuteEndPhase()
 	// End Step: "At end of turn" effects trigger
 	GCGGameState->CurrentEndPhaseStep = EGCGEndPhaseStep::EndStep;
 	// TODO: Trigger "at end of turn" effects (Phase 8: Effect System)
-	// TODO: Process Repair keyword here
+
+	// Process Repair keyword for both players (Phase 7)
+	UGCGKeywordSubsystem* KeywordSubsystem = GetGameInstance()->GetSubsystem<UGCGKeywordSubsystem>();
+	if (KeywordSubsystem)
+	{
+		// Process Repair for active player
+		AGCGPlayerState* ActivePlayer = GetPlayerStateByID(GCGGameState->ActivePlayerID);
+		if (ActivePlayer)
+		{
+			int32 Healing = KeywordSubsystem->ProcessRepairForPlayer(ActivePlayer);
+			if (Healing > 0)
+			{
+				UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::ExecuteEndPhase - Player %d: Repair healed %d damage"),
+					GCGGameState->ActivePlayerID, Healing);
+			}
+		}
+
+		// Process Repair for non-active player
+		int32 OpponentID = (GCGGameState->ActivePlayerID == 1) ? 2 : 1;
+		AGCGPlayerState* OpponentPlayer = GetPlayerStateByID(OpponentID);
+		if (OpponentPlayer)
+		{
+			int32 Healing = KeywordSubsystem->ProcessRepairForPlayer(OpponentPlayer);
+			if (Healing > 0)
+			{
+				UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::ExecuteEndPhase - Player %d: Repair healed %d damage"),
+					OpponentID, Healing);
+			}
+		}
+	}
 
 	// Hand Step: If hand ≥ 11, discard to 10
 	GCGGameState->CurrentEndPhaseStep = EGCGEndPhaseStep::HandStep;
