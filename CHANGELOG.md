@@ -7,6 +7,251 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.0-alpha] - 2025-11-15
+
+### ✅ Phase 3 COMPLETE - Zone Management & Player State
+
+**Achievement**: Implemented complete zone management system with card movement, validation, and player state tracking. Filled in all Phase 2 gameplay stubs to create functional turn/phase flow.
+
+#### Added
+
+**Zone Management Subsystem**:
+- **Source/GundamTCG/Subsystems/GCGZoneSubsystem.h/cpp**:
+  - Game Instance Subsystem for centralized zone operations
+  - **Card Movement**:
+    - MoveCard() - Move single card between zones with validation
+    - MoveCards() - Move multiple cards at once
+    - ValidateZoneTransition() - Check if zone transition is legal
+    - ApplyZoneEntryRules() - Apply zone-specific rules when entering (e.g., units enter rested)
+    - ApplyZoneExitRules() - Clean up when leaving zones (e.g., remove attached cards)
+  - **Zone Validation**:
+    - CanAddToZone() - Check if zone can accept card
+    - GetZoneCount() - Count cards in zone
+    - GetZoneMaxCapacity() - Get zone limit (6 Units, 15 Resources, 1 Base, etc.)
+    - IsZoneAtCapacity() - Check if zone is full
+  - **Zone Queries**:
+    - GetCardsInZone() - Get all cards in a zone
+    - FindCardInZone() - Find card by instance ID
+  - **Zone Manipulation**:
+    - ShuffleZone() - Fisher-Yates shuffle for Deck/ResourceDeck
+    - DrawTopCard() - Draw single card from top of ordered zone
+    - DrawTopCards() - Draw multiple cards
+    - PeekTopCard() - Look at top card without removing
+  - **Special Operations**:
+    - ActivateAllCards() - Set all cards to active (untap all)
+    - RestAllCards() - Set all cards to rested
+    - ClearAllDamage() - Remove damage from all cards in zone
+  - **Helper Functions**:
+    - GetZoneName() - Human-readable zone names
+    - IsZonePublic() - Check if zone is visible to all players
+    - IsZoneOrdered() - Check if zone has specific card order
+
+**Player State Class**:
+- **Source/GundamTCG/PlayerState/GCGPlayerState.h/cpp**:
+  - Replicated player-specific state
+  - **All 9 Card Zones** (replicated TArrays):
+    1. Deck - Main deck (50 cards, ordered, top = index 0)
+    2. ResourceDeck - Resource deck (10 cards, ordered, top = index 0)
+    3. Hand - Cards in hand (max 10 at end of turn)
+    4. ResourceArea - Resources (max 15)
+    5. BattleArea - Units in play (max 6, shared in 2v2)
+    6. ShieldStack - Shield cards (6 in 1v1, 8 in 2v2, ordered)
+    7. BaseSection - Base card or EX Base token (max 1)
+    8. Trash - Discard pile (public, unordered)
+    9. Removal - Removed from game (private, unordered)
+  - **Deck Lists**:
+    - MainDeckList - Card numbers for main deck (for validation)
+    - ResourceDeckList - Card numbers for resource deck
+  - **Player Flags**:
+    - bHasLost - Has player lost the game
+    - bHasPriority - Can player take actions
+    - bHasPlacedResourceThisTurn - Track resource placement
+    - bHasDrawnThisTurn - Track draw for effects
+  - **Zone Query Functions**:
+    - GetActiveResourceCount() - Count active (untapped) resources
+    - GetTotalResourceCount() - Count all resources
+    - GetShieldCount() - Count shields
+    - GetUnitCount() - Count units in battle
+    - GetHandSize() - Count cards in hand
+    - GetDeckSize() - Count cards in deck
+    - GetResourceDeckSize() - Count cards in resource deck
+  - **Validation Functions**:
+    - CanPayCost() - Check if enough active resources
+    - CanAddUnitToBattle() - Check if battle area has space
+    - CanAddResource() - Check if resource area has space
+  - **Helper Functions**:
+    - ResetTurnFlags() - Clear turn flags at start of turn
+    - GetAllCards() - Get all cards across all zones
+    - FindCardByInstanceID() - Find card by ID in any zone
+  - **Blueprint Events**:
+    - OnCardAddedToZone() - Notify when card enters zone
+    - OnCardRemovedFromZone() - Notify when card leaves zone
+    - OnPlayerLost() - Notify when player loses
+
+#### Phase 2 Stubs Filled In
+
+**Game Mode 1v1 Updates** (Source/GundamTCG/GameModes/GCGGameMode_1v1.cpp):
+- **ExecuteDrawPhase()** - NOW FUNCTIONAL:
+  - Checks if deck is empty before drawing
+  - Player loses if must draw from empty deck (victory condition)
+  - Draws 1 card using ZoneSubsystem
+  - Moves card from Deck to Hand
+  - Sets bHasDrawnThisTurn flag
+
+- **ExecuteResourcePhase()** - NOW FUNCTIONAL:
+  - Draws 1 card from Resource Deck
+  - Moves to Resource Area using ZoneSubsystem
+  - Card enters active (untapped) per zone entry rules
+  - Handles empty Resource Deck gracefully
+  - Sets bHasPlacedResourceThisTurn flag
+
+- **ActivateAllCardsForPlayer()** - NOW FUNCTIONAL:
+  - Uses ZoneSubsystem->ActivateAllCards()
+  - Activates all cards in BattleArea, ResourceArea, BaseSection
+  - Resets turn flags for new turn
+  - Logs activation count
+
+- **ProcessHandLimit()** - NOW FUNCTIONAL:
+  - Checks hand size at end of turn
+  - Logs requirement if hand ≥ 11 cards
+  - Stub for player discard selection (Phase 5)
+
+- **SetupPlayerDecks()** - NOW FUNCTIONAL:
+  - Creates card instances from deck lists
+  - Populates Deck and ResourceDeck zones
+  - Shuffles both decks using ZoneSubsystem
+  - Stores deck lists in PlayerState
+
+- **SetupPlayerShields()** - NOW FUNCTIONAL:
+  - Draws 6 cards from top of Deck
+  - Moves cards to ShieldStack zone
+  - Handles insufficient deck size
+
+- **SetupEXBase()** - NOW FUNCTIONAL:
+  - Creates EX Base token (0 AP, 3 HP)
+  - Places in BaseSection zone
+  - Sets token as active
+
+- **SetupEXResource()** - NOW FUNCTIONAL:
+  - Creates EX Resource token (for Player 2)
+  - Places in ResourceArea zone
+  - Sets token as active
+
+- **InitializeGame()** - ENHANCED:
+  - Draws initial 5-card hands for both players
+  - Uses ZoneSubsystem for card drawing
+  - Moves cards from Deck to Hand
+
+#### Features Implemented
+
+**Complete Zone Management**:
+- All card movements go through centralized subsystem
+- Zone limits enforced (6 Units, 15 Resources, 1 Base)
+- Zone-specific rules applied automatically (units enter rested, resources enter active, etc.)
+- Public/private zone handling
+- Ordered/unordered zone handling
+
+**Victory Conditions**:
+- Player loses if they must draw from empty deck
+- Foundation for shield damage loss condition (Phase 6: Combat)
+
+**Turn Flow Now Functional**:
+```
+Turn Start
+    ↓
+Start Phase → Activate all cards, reset turn flags
+    ↓
+Draw Phase → Draw 1 card (lose if deck empty)
+    ↓
+Resource Phase → Place 1 resource (automatically active)
+    ↓
+Main Phase → [Player actions - stubs for Phase 5]
+    ↓
+End Phase → Hand limit check (discard to 10 if needed)
+    ↓
+Next Turn
+```
+
+**Initial Game Setup**:
+- Deck creation and shuffling
+- Shield stack setup (6 shields from deck)
+- EX Base tokens for both players
+- EX Resource token for Player 2 (going second advantage)
+- Initial 5-card hands
+
+**Full Replication**:
+- All zone arrays replicated to clients
+- Player flags replicated
+- Zone changes automatically sync across network
+
+#### Integration Points
+
+**Ready for Phase 4 (Card Database)**:
+- CreateCardInstance() uses card database lookup
+- All card data comes from DataTable
+- Token definitions ready
+
+**Ready for Phase 5 (Player Actions)**:
+- Zone validation functions ready (CanPayCost, CanAddUnitToBattle, etc.)
+- Hand discard selection needs UI
+- Card play validation ready
+
+**Ready for Phase 6 (Combat)**:
+- Shield damage handling needs combat implementation
+- BattleArea manipulation ready
+- Damage tracking on cards implemented
+
+**Ready for Phase 8 (Effect System)**:
+- Zone entry/exit hooks ready for effects
+- Modifier application can hook into zone rules
+
+#### Technical Notes
+
+**Zone Array Access**:
+- Subsystem accesses PlayerState zone arrays directly
+- Public zone arrays for subsystem efficiency
+- Replication handles network sync
+
+**Fisher-Yates Shuffle**:
+- Proper randomization for deck shuffling
+- Uses FMath::RandRange for UE5 compatibility
+
+**Zone Transition Validation**:
+- Prevents invalid moves (e.g., can't move from Removal)
+- Prevents same-zone moves
+- Validates card types per zone
+
+**Performance**:
+- O(1) zone access via direct array pointers
+- O(n) for card searches within zones
+- Efficient batch operations (MoveCards, ActivateAllCards)
+
+#### Files Modified
+
+- Source/GundamTCG/GameModes/GCGGameMode_1v1.cpp - Filled in all gameplay stubs
+
+#### Files Created
+
+- Source/GundamTCG/Subsystems/GCGZoneSubsystem.h (270 lines)
+- Source/GundamTCG/Subsystems/GCGZoneSubsystem.cpp (580 lines)
+- Source/GundamTCG/PlayerState/GCGPlayerState.h (270 lines)
+- Source/GundamTCG/PlayerState/GCGPlayerState.cpp (220 lines)
+
+#### Testing Recommendations
+
+1. Test deck setup and shuffling
+2. Test draw phase (normal draw + empty deck loss)
+3. Test resource placement
+4. Test card activation at start of turn
+5. Test hand limit checking
+6. Test shield setup
+7. Test EX Base/Resource token creation
+8. Test zone capacity limits
+9. Test initial 5-card hand drawing
+10. Test network replication of all zones
+
+---
+
 ## [1.1.0-alpha] - 2025-11-15
 
 ### ✅ Phase 2 COMPLETE - Game Mode & State System

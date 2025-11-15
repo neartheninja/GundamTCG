@@ -3,6 +3,8 @@
 
 #include "GCGGameMode_1v1.h"
 #include "GundamTCG/GameState/GCGGameState.h"
+#include "GundamTCG/PlayerState/GCGPlayerState.h"
+#include "GundamTCG/Subsystems/GCGZoneSubsystem.h"
 #include "TimerManager.h"
 #include "Engine/World.h"
 
@@ -54,19 +56,34 @@ void AGCGGameMode_1v1::InitializeGame()
 	GCGGameState->bIsTeamBattle = false;
 	GCGGameState->ActivePlayerID = 0; // Player 1 goes first by default
 
-	// TODO: Setup decks for both players (requires deck lists)
-	// For now, this would be called externally after deck selection
-	// SetupPlayerDecks(0, MainDeck1, ResourceDeck1);
-	// SetupPlayerDecks(1, MainDeck2, ResourceDeck2);
+	// NOTE: Deck setup must be called externally after deck selection
+	// Once decks are set up, the following initialization sequence applies:
 
-	// TODO: Setup shields and EX Base for both players
-	// SetupPlayerShields(0);
-	// SetupPlayerShields(1);
-	// SetupEXBase(0);
-	// SetupEXBase(1);
+	// Get zone subsystem for drawing initial hands
+	UGCGZoneSubsystem* ZoneSubsystem = GetGameInstance()->GetSubsystem<UGCGZoneSubsystem>();
+	if (ZoneSubsystem)
+	{
+		// Draw initial 5-card hands for both players
+		TArray<AGCGPlayerState*> AllPlayerStates = GetAllPlayerStates();
+		for (AGCGPlayerState* PlayerState : AllPlayerStates)
+		{
+			if (PlayerState && PlayerState->GetDeckSize() >= 5)
+			{
+				TArray<FGCGCardInstance> InitialHand;
+				int32 CardsDrawn = ZoneSubsystem->DrawTopCards(EGCGCardZone::Deck, PlayerState, 5, InitialHand);
 
-	// TODO: Setup EX Resource for Player 2
-	// SetupEXResource(1);
+				// Move cards to hand
+				for (FGCGCardInstance& Card : InitialHand)
+				{
+					Card.CurrentZone = EGCGCardZone::Hand;
+					PlayerState->Hand.Add(Card);
+				}
+
+				UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::InitializeGame - Player %d drew initial hand (%d cards)"),
+					PlayerState->GetPlayerID(), CardsDrawn);
+			}
+		}
+	}
 
 	UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::InitializeGame - Game initialized, ready to start first turn"));
 
@@ -247,13 +264,48 @@ void AGCGGameMode_1v1::ExecuteDrawPhase()
 
 	UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::ExecuteDrawPhase - Executing Draw Phase"));
 
-	// Player draws 1 card (mandatory)
-	// TODO: Implement actual card drawing (Phase 3: Zone Management)
-	// For now, just log
-	UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::ExecuteDrawPhase - Player %d draws 1 card"), GCGGameState->ActivePlayerID);
+	// Get zone subsystem
+	UGCGZoneSubsystem* ZoneSubsystem = GetGameInstance()->GetSubsystem<UGCGZoneSubsystem>();
+	if (!ZoneSubsystem)
+	{
+		UE_LOG(LogTemp, Error, TEXT("AGCGGameMode_1v1::ExecuteDrawPhase - Zone subsystem not found"));
+		return;
+	}
 
-	// TODO: Check if deck is empty after draw → player loses
-	// CheckVictoryConditions();
+	// Get active player state
+	AGCGPlayerState* ActivePlayerState = GetPlayerStateByID(GCGGameState->ActivePlayerID);
+	if (!ActivePlayerState)
+	{
+		UE_LOG(LogTemp, Error, TEXT("AGCGGameMode_1v1::ExecuteDrawPhase - Active player state not found"));
+		return;
+	}
+
+	// Check if deck is empty BEFORE drawing
+	if (ActivePlayerState->GetDeckSize() == 0)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("AGCGGameMode_1v1::ExecuteDrawPhase - Player %d cannot draw (deck empty) - LOSES THE GAME"),
+			GCGGameState->ActivePlayerID);
+		// Player loses if they must draw but deck is empty
+		int32 OpponentID = GetNextPlayerID(GCGGameState->ActivePlayerID);
+		EndGame(OpponentID);
+		return;
+	}
+
+	// Player draws 1 card (mandatory)
+	FGCGCardInstance DrawnCard;
+	if (ZoneSubsystem->DrawTopCard(EGCGCardZone::Deck, ActivePlayerState, DrawnCard))
+	{
+		// Move card to hand
+		if (ZoneSubsystem->MoveCard(DrawnCard, EGCGCardZone::Deck, EGCGCardZone::Hand,
+			ActivePlayerState, GCGGameState, false))
+		{
+			UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::ExecuteDrawPhase - Player %d drew card: %s (ID: %d)"),
+				GCGGameState->ActivePlayerID, *DrawnCard.CardName.ToString(), DrawnCard.InstanceID);
+
+			// Mark that player has drawn this turn
+			ActivePlayerState->bHasDrawnThisTurn = true;
+		}
+	}
 
 	// Call Blueprint event
 	OnPhaseExecuted(EGCGTurnPhase::DrawPhase);
@@ -275,10 +327,46 @@ void AGCGGameMode_1v1::ExecuteResourcePhase()
 
 	UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::ExecuteResourcePhase - Executing Resource Phase"));
 
+	// Get zone subsystem
+	UGCGZoneSubsystem* ZoneSubsystem = GetGameInstance()->GetSubsystem<UGCGZoneSubsystem>();
+	if (!ZoneSubsystem)
+	{
+		UE_LOG(LogTemp, Error, TEXT("AGCGGameMode_1v1::ExecuteResourcePhase - Zone subsystem not found"));
+		return;
+	}
+
+	// Get active player state
+	AGCGPlayerState* ActivePlayerState = GetPlayerStateByID(GCGGameState->ActivePlayerID);
+	if (!ActivePlayerState)
+	{
+		UE_LOG(LogTemp, Error, TEXT("AGCGGameMode_1v1::ExecuteResourcePhase - Active player state not found"));
+		return;
+	}
+
 	// Player places 1 card from Resource Deck to Resource Area (mandatory)
-	// TODO: Implement actual resource placement (Phase 3: Zone Management)
-	// For now, just log
-	UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::ExecuteResourcePhase - Player %d places 1 resource"), GCGGameState->ActivePlayerID);
+	// If Resource Deck is empty, phase still passes but no placement
+	if (ActivePlayerState->GetResourceDeckSize() == 0)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("AGCGGameMode_1v1::ExecuteResourcePhase - Player %d has no cards in Resource Deck"),
+			GCGGameState->ActivePlayerID);
+	}
+	else
+	{
+		FGCGCardInstance ResourceCard;
+		if (ZoneSubsystem->DrawTopCard(EGCGCardZone::ResourceDeck, ActivePlayerState, ResourceCard))
+		{
+			// Move card to Resource Area
+			if (ZoneSubsystem->MoveCard(ResourceCard, EGCGCardZone::ResourceDeck, EGCGCardZone::ResourceArea,
+				ActivePlayerState, GCGGameState, true))
+			{
+				UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::ExecuteResourcePhase - Player %d placed resource: %s (ID: %d)"),
+					GCGGameState->ActivePlayerID, *ResourceCard.CardName.ToString(), ResourceCard.InstanceID);
+
+				// Mark that player has placed resource this turn
+				ActivePlayerState->bHasPlacedResourceThisTurn = true;
+			}
+		}
+	}
 
 	// Call Blueprint event
 	OnPhaseExecuted(EGCGTurnPhase::ResourcePhase);
@@ -438,27 +526,121 @@ void AGCGGameMode_1v1::RequestPassPriority(int32 PlayerID)
 
 void AGCGGameMode_1v1::SetupPlayerDecks(int32 PlayerID, const TArray<FName>& MainDeckList, const TArray<FName>& ResourceDeckList)
 {
-	// TODO: Implement deck setup (Phase 3: Zone Management)
-	// This will create card instances and place them in the Deck and ResourceDeck zones
-
 	UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::SetupPlayerDecks - Setting up decks for Player %d (Main: %d cards, Resource: %d cards)"),
 		PlayerID, MainDeckList.Num(), ResourceDeckList.Num());
+
+	// Get zone subsystem
+	UGCGZoneSubsystem* ZoneSubsystem = GetGameInstance()->GetSubsystem<UGCGZoneSubsystem>();
+	if (!ZoneSubsystem)
+	{
+		UE_LOG(LogTemp, Error, TEXT("AGCGGameMode_1v1::SetupPlayerDecks - Zone subsystem not found"));
+		return;
+	}
+
+	// Get player state
+	AGCGPlayerState* PlayerState = GetPlayerStateByID(PlayerID);
+	if (!PlayerState)
+	{
+		UE_LOG(LogTemp, Error, TEXT("AGCGGameMode_1v1::SetupPlayerDecks - Player state not found for ID %d"), PlayerID);
+		return;
+	}
+
+	// Store deck lists in player state
+	PlayerState->MainDeckList = MainDeckList;
+	PlayerState->ResourceDeckList = ResourceDeckList;
+
+	// Clear existing deck zones
+	PlayerState->Deck.Empty();
+	PlayerState->ResourceDeck.Empty();
+
+	// Create and add Main Deck cards
+	for (const FName& CardNumber : MainDeckList)
+	{
+		FGCGCardInstance CardInstance = CreateCardInstance(CardNumber, PlayerID);
+		CardInstance.CurrentZone = EGCGCardZone::Deck;
+		PlayerState->Deck.Add(CardInstance);
+	}
+
+	// Create and add Resource Deck cards
+	for (const FName& CardNumber : ResourceDeckList)
+	{
+		FGCGCardInstance CardInstance = CreateCardInstance(CardNumber, PlayerID);
+		CardInstance.CurrentZone = EGCGCardZone::ResourceDeck;
+		PlayerState->ResourceDeck.Add(CardInstance);
+	}
+
+	// Shuffle both decks
+	ZoneSubsystem->ShuffleZone(EGCGCardZone::Deck, PlayerState);
+	ZoneSubsystem->ShuffleZone(EGCGCardZone::ResourceDeck, PlayerState);
+
+	UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::SetupPlayerDecks - Player %d decks created and shuffled (Deck: %d, Resource: %d)"),
+		PlayerID, PlayerState->Deck.Num(), PlayerState->ResourceDeck.Num());
 }
 
 void AGCGGameMode_1v1::SetupPlayerShields(int32 PlayerID)
 {
-	// TODO: Implement shield setup (Phase 3: Zone Management)
-	// This will take 6 cards from top of deck and place them in ShieldStack zone
-
 	UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::SetupPlayerShields - Setting up 6 shields for Player %d"), PlayerID);
+
+	// Get zone subsystem
+	UGCGZoneSubsystem* ZoneSubsystem = GetGameInstance()->GetSubsystem<UGCGZoneSubsystem>();
+	if (!ZoneSubsystem)
+	{
+		UE_LOG(LogTemp, Error, TEXT("AGCGGameMode_1v1::SetupPlayerShields - Zone subsystem not found"));
+		return;
+	}
+
+	// Get player state
+	AGCGPlayerState* PlayerState = GetPlayerStateByID(PlayerID);
+	if (!PlayerState)
+	{
+		UE_LOG(LogTemp, Error, TEXT("AGCGGameMode_1v1::SetupPlayerShields - Player state not found for ID %d"), PlayerID);
+		return;
+	}
+
+	AGCGGameState* GCGGameState = GetGCGGameState();
+	if (!GCGGameState)
+	{
+		UE_LOG(LogTemp, Error, TEXT("AGCGGameMode_1v1::SetupPlayerShields - Game state not found"));
+		return;
+	}
+
+	// Take 6 cards from top of deck and place them in Shield Stack
+	TArray<FGCGCardInstance> ShieldCards;
+	int32 CardsDrawn = ZoneSubsystem->DrawTopCards(EGCGCardZone::Deck, PlayerState, 6, ShieldCards);
+
+	if (CardsDrawn != 6)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("AGCGGameMode_1v1::SetupPlayerShields - Could only draw %d shields (expected 6)"), CardsDrawn);
+	}
+
+	// Move cards to Shield Stack
+	for (FGCGCardInstance& ShieldCard : ShieldCards)
+	{
+		ShieldCard.CurrentZone = EGCGCardZone::ShieldStack;
+		PlayerState->ShieldStack.Add(ShieldCard);
+	}
+
+	UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::SetupPlayerShields - Player %d now has %d shields"),
+		PlayerID, PlayerState->ShieldStack.Num());
 }
 
 void AGCGGameMode_1v1::SetupEXBase(int32 PlayerID)
 {
+	// Get player state
+	AGCGPlayerState* PlayerState = GetPlayerStateByID(PlayerID);
+	if (!PlayerState)
+	{
+		UE_LOG(LogTemp, Error, TEXT("AGCGGameMode_1v1::SetupEXBase - Player state not found for ID %d"), PlayerID);
+		return;
+	}
+
 	// Create EX Base token
 	FGCGCardInstance EXBaseToken = CreateTokenInstance(FName("EXBase"), PlayerID);
+	EXBaseToken.CurrentZone = EGCGCardZone::BaseSection;
+	EXBaseToken.bIsActive = true;
 
-	// TODO: Place EX Base in Base section (Phase 3: Zone Management)
+	// Place EX Base in Base section
+	PlayerState->BaseSection.Add(EXBaseToken);
 
 	UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::SetupEXBase - Created EX Base token for Player %d (ID: %d)"),
 		PlayerID, EXBaseToken.InstanceID);
@@ -466,10 +648,21 @@ void AGCGGameMode_1v1::SetupEXBase(int32 PlayerID)
 
 void AGCGGameMode_1v1::SetupEXResource(int32 PlayerID)
 {
+	// Get player state
+	AGCGPlayerState* PlayerState = GetPlayerStateByID(PlayerID);
+	if (!PlayerState)
+	{
+		UE_LOG(LogTemp, Error, TEXT("AGCGGameMode_1v1::SetupEXResource - Player state not found for ID %d"), PlayerID);
+		return;
+	}
+
 	// Create EX Resource token
 	FGCGCardInstance EXResourceToken = CreateTokenInstance(FName("EXResource"), PlayerID);
+	EXResourceToken.CurrentZone = EGCGCardZone::ResourceArea;
+	EXResourceToken.bIsActive = true;
 
-	// TODO: Place EX Resource in Resource Area (Phase 3: Zone Management)
+	// Place EX Resource in Resource Area
+	PlayerState->ResourceArea.Add(EXResourceToken);
 
 	UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::SetupEXResource - Created EX Resource token for Player %d (ID: %d)"),
 		PlayerID, EXResourceToken.InstanceID);
@@ -485,18 +678,64 @@ int32 AGCGGameMode_1v1::GetNextPlayerID(int32 CurrentPlayerID) const
 
 void AGCGGameMode_1v1::ActivateAllCardsForPlayer(int32 PlayerID)
 {
-	// TODO: Implement card activation (Phase 3: Zone Management)
-	// This will set all rested cards in Battle Area, Resource Area, and Base to active
+	// Get zone subsystem
+	UGCGZoneSubsystem* ZoneSubsystem = GetGameInstance()->GetSubsystem<UGCGZoneSubsystem>();
+	if (!ZoneSubsystem)
+	{
+		UE_LOG(LogTemp, Error, TEXT("AGCGGameMode_1v1::ActivateAllCardsForPlayer - Zone subsystem not found"));
+		return;
+	}
 
-	UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::ActivateAllCardsForPlayer - Activating all cards for Player %d"), PlayerID);
+	// Get player state
+	AGCGPlayerState* PlayerState = GetPlayerStateByID(PlayerID);
+	if (!PlayerState)
+	{
+		UE_LOG(LogTemp, Error, TEXT("AGCGGameMode_1v1::ActivateAllCardsForPlayer - Player state not found for ID %d"), PlayerID);
+		return;
+	}
+
+	// Activate all cards (Zone::None means all relevant zones)
+	int32 ActivatedCount = ZoneSubsystem->ActivateAllCards(PlayerState, EGCGCardZone::None);
+
+	UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::ActivateAllCardsForPlayer - Activated %d cards for Player %d"),
+		ActivatedCount, PlayerID);
+
+	// Reset turn flags for new turn
+	PlayerState->ResetTurnFlags();
 }
 
 void AGCGGameMode_1v1::ProcessHandLimit(int32 PlayerID)
 {
-	// TODO: Implement hand limit check (Phase 3: Zone Management)
-	// If hand size ≥ 11, player must discard down to 10
+	// Get player state
+	AGCGPlayerState* PlayerState = GetPlayerStateByID(PlayerID);
+	if (!PlayerState)
+	{
+		UE_LOG(LogTemp, Error, TEXT("AGCGGameMode_1v1::ProcessHandLimit - Player state not found for ID %d"), PlayerID);
+		return;
+	}
 
-	UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::ProcessHandLimit - Checking hand limit for Player %d"), PlayerID);
+	int32 HandSize = PlayerState->GetHandSize();
+
+	// If hand size ≥ 11, player must discard down to 10
+	if (HandSize >= 11)
+	{
+		int32 CardsToDiscard = HandSize - 10;
+		UE_LOG(LogTemp, Warning, TEXT("AGCGGameMode_1v1::ProcessHandLimit - Player %d has %d cards in hand, must discard %d"),
+			PlayerID, HandSize, CardsToDiscard);
+
+		// TODO: Implement player choice for which cards to discard (Phase 5: Player Actions)
+		// For now, just log the requirement
+		// In a real implementation, this would:
+		// 1. Pause the game
+		// 2. Request player to select cards to discard
+		// 3. Move selected cards from Hand to Trash
+		// 4. Resume the game
+	}
+	else
+	{
+		UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::ProcessHandLimit - Player %d has %d cards in hand (within limit)"),
+			PlayerID, HandSize);
+	}
 }
 
 void AGCGGameMode_1v1::CleanupTurnEffects()
