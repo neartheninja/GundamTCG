@@ -9,6 +9,8 @@
 #include "GundamTCG/Subsystems/GCGCombatSubsystem.h"
 #include "GundamTCG/Subsystems/GCGKeywordSubsystem.h"
 #include "GundamTCG/Subsystems/GCGEffectSubsystem.h"
+#include "GundamTCG/Subsystems/GCGLinkUnitSubsystem.h"
+#include "GundamTCG/Subsystems/GCGCardDatabase.h"
 #include "TimerManager.h"
 #include "Engine/World.h"
 
@@ -831,6 +833,173 @@ void AGCGGameMode_1v1::ResolveCombat()
 	{
 		EndGame(AttackingPlayerID);
 	}
+}
+
+// ===== LINK UNIT PAIRING (PHASE 9) =====
+
+bool AGCGGameMode_1v1::RequestPairPilot(int32 PlayerID, int32 LinkUnitInstanceID, int32 PilotInstanceID)
+{
+	UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::RequestPairPilot - Player %d requesting to pair Link Unit %d with Pilot %d"),
+		PlayerID, LinkUnitInstanceID, PilotInstanceID);
+
+	// Get player state
+	AGCGPlayerState* PlayerState = GetPlayerStateByID(PlayerID);
+	if (!PlayerState)
+	{
+		UE_LOG(LogTemp, Error, TEXT("AGCGGameMode_1v1::RequestPairPilot - Player state not found"));
+		return false;
+	}
+
+	// Get Link Unit subsystem
+	UGCGLinkUnitSubsystem* LinkUnitSubsystem = GetGameInstance()->GetSubsystem<UGCGLinkUnitSubsystem>();
+	if (!LinkUnitSubsystem)
+	{
+		UE_LOG(LogTemp, Error, TEXT("AGCGGameMode_1v1::RequestPairPilot - Link Unit subsystem not found"));
+		return false;
+	}
+
+	// Get Card Database subsystem
+	UGCGCardDatabase* CardDatabase = GetGameInstance()->GetSubsystem<UGCGCardDatabase>();
+	if (!CardDatabase)
+	{
+		UE_LOG(LogTemp, Error, TEXT("AGCGGameMode_1v1::RequestPairPilot - Card database not found"));
+		return false;
+	}
+
+	// Find Link Unit instance in Battle Area
+	FGCGCardInstance* LinkUnitInstance = nullptr;
+	for (FGCGCardInstance& Card : PlayerState->BattleArea)
+	{
+		if (Card.InstanceID == LinkUnitInstanceID)
+		{
+			LinkUnitInstance = &Card;
+			break;
+		}
+	}
+
+	if (!LinkUnitInstance)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("AGCGGameMode_1v1::RequestPairPilot - Link Unit not found in Battle Area"));
+		return false;
+	}
+
+	// Find Pilot instance in Battle Area
+	FGCGCardInstance* PilotInstance = nullptr;
+	for (FGCGCardInstance& Card : PlayerState->BattleArea)
+	{
+		if (Card.InstanceID == PilotInstanceID)
+		{
+			PilotInstance = &Card;
+			break;
+		}
+	}
+
+	if (!PilotInstance)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("AGCGGameMode_1v1::RequestPairPilot - Pilot not found in Battle Area"));
+		return false;
+	}
+
+	// Get card data
+	const FGCGCardData* LinkUnitData = CardDatabase->GetCardData(LinkUnitInstance->CardNumber);
+	const FGCGCardData* PilotData = CardDatabase->GetCardData(PilotInstance->CardNumber);
+
+	if (!LinkUnitData || !PilotData)
+	{
+		UE_LOG(LogTemp, Error, TEXT("AGCGGameMode_1v1::RequestPairPilot - Card data not found"));
+		return false;
+	}
+
+	// Attempt pairing
+	FGCGLinkResult Result = LinkUnitSubsystem->PairPilotWithUnit(*LinkUnitInstance, *PilotInstance, LinkUnitData, PilotData);
+
+	if (!Result.bSuccess)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("AGCGGameMode_1v1::RequestPairPilot - Pairing failed: %s"), *Result.ErrorMessage);
+		return false;
+	}
+
+	UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::RequestPairPilot - Pairing successful: %s"), *Result.ErrorMessage);
+
+	// TODO: Trigger "WhenPaired" effects (Phase 8)
+
+	return true;
+}
+
+bool AGCGGameMode_1v1::RequestUnpairPilot(int32 PlayerID, int32 LinkUnitInstanceID)
+{
+	UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::RequestUnpairPilot - Player %d requesting to unpair Link Unit %d"),
+		PlayerID, LinkUnitInstanceID);
+
+	// Get player state
+	AGCGPlayerState* PlayerState = GetPlayerStateByID(PlayerID);
+	if (!PlayerState)
+	{
+		UE_LOG(LogTemp, Error, TEXT("AGCGGameMode_1v1::RequestUnpairPilot - Player state not found"));
+		return false;
+	}
+
+	// Get Link Unit subsystem
+	UGCGLinkUnitSubsystem* LinkUnitSubsystem = GetGameInstance()->GetSubsystem<UGCGLinkUnitSubsystem>();
+	if (!LinkUnitSubsystem)
+	{
+		UE_LOG(LogTemp, Error, TEXT("AGCGGameMode_1v1::RequestUnpairPilot - Link Unit subsystem not found"));
+		return false;
+	}
+
+	// Find Link Unit instance in Battle Area
+	FGCGCardInstance* LinkUnitInstance = nullptr;
+	for (FGCGCardInstance& Card : PlayerState->BattleArea)
+	{
+		if (Card.InstanceID == LinkUnitInstanceID)
+		{
+			LinkUnitInstance = &Card;
+			break;
+		}
+	}
+
+	if (!LinkUnitInstance)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("AGCGGameMode_1v1::RequestUnpairPilot - Link Unit not found in Battle Area"));
+		return false;
+	}
+
+	// Check if paired
+	if (LinkUnitInstance->PairedCardInstanceID == -1)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("AGCGGameMode_1v1::RequestUnpairPilot - Link Unit is not paired"));
+		return false;
+	}
+
+	// Find Pilot instance
+	FGCGCardInstance* PilotInstance = nullptr;
+	for (FGCGCardInstance& Card : PlayerState->BattleArea)
+	{
+		if (Card.InstanceID == LinkUnitInstance->PairedCardInstanceID)
+		{
+			PilotInstance = &Card;
+			break;
+		}
+	}
+
+	if (!PilotInstance)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("AGCGGameMode_1v1::RequestUnpairPilot - Paired Pilot not found"));
+		return false;
+	}
+
+	// Attempt unpairing
+	FGCGLinkResult Result = LinkUnitSubsystem->UnpairPilot(*LinkUnitInstance, *PilotInstance);
+
+	if (!Result.bSuccess)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("AGCGGameMode_1v1::RequestUnpairPilot - Unpairing failed: %s"), *Result.ErrorMessage);
+		return false;
+	}
+
+	UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::RequestUnpairPilot - Unpairing successful"));
+
+	return true;
 }
 
 // ===== SETUP HELPERS =====

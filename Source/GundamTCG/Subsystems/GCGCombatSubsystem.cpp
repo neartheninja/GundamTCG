@@ -3,6 +3,7 @@
 
 #include "GCGCombatSubsystem.h"
 #include "GCGKeywordSubsystem.h"
+#include "GCGLinkUnitSubsystem.h"
 #include "GundamTCG/PlayerState/GCGPlayerState.h"
 #include "GundamTCG/GameState/GCGGameState.h"
 #include "GundamTCG/Subsystems/GCGZoneSubsystem.h"
@@ -550,19 +551,13 @@ bool UGCGCombatSubsystem::HasSummoningSickness(const FGCGCardInstance& CardInsta
 		return false;
 	}
 
-	// Check for Link Unit keyword (Phase 7)
+	// Check for Link Unit keyword (Phase 9)
 	// Link Units can attack on deployment turn if paired with a Pilot
-	UGCGKeywordSubsystem* KeywordSubsystem = GetGameInstance()->GetSubsystem<UGCGKeywordSubsystem>();
-	if (KeywordSubsystem && KeywordSubsystem->IsLinkUnit(CardInstance))
+	UGCGLinkUnitSubsystem* LinkUnitSubsystem = GetGameInstance()->GetSubsystem<UGCGLinkUnitSubsystem>();
+	if (LinkUnitSubsystem && LinkUnitSubsystem->CanLinkUnitAttackThisTurn(CardInstance, GameState->TurnNumber))
 	{
-		// Find player state to check if paired
-		// Note: This is a const function so we can't easily get PlayerState
-		// For now, check if PairedCardInstanceID is set (indicates pairing)
-		if (CardInstance.PairedCardInstanceID > 0)
-		{
-			// Paired with a card - assume it's a Pilot (full validation in CanAttack)
-			return false; // No summoning sickness
-		}
+		// Link Unit is paired - no summoning sickness
+		return false;
 	}
 
 	// Has summoning sickness

@@ -7,6 +7,149 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.8.0-alpha] - 2025-11-15
+
+### ✅ Phase 9 COMPLETE - Link Units & Pilot Pairing
+
+**Achievement**: Implemented Link Unit and Pilot pairing system with requirement validation and summoning sickness bypass.
+
+#### Added
+
+**Link Unit Subsystem**:
+- **Source/GundamTCG/Subsystems/GCGLinkUnitSubsystem.h/cpp** (600 lines):
+  - **Pairing Operations**:
+    - PairPilotWithUnit() - Pair a Pilot with a Link Unit with full validation
+    - UnpairPilot() - Remove pairing between Pilot and Link Unit
+    - ValidateLinkRequirement() - Validate color, trait, and specific card requirements
+  - **Validation Functions**:
+    - IsPaired() - Check if Unit/Pilot is currently paired
+    - CanLinkUnitAttackThisTurn() - Check if Link Unit can bypass summoning sickness
+    - ValidateColorRequirement() - Check if Pilot matches color requirements
+    - ValidateTraitRequirement() - Check if Pilot has required traits
+    - ValidateSpecificCardRequirement() - Check if Pilot is a specific required card
+  - **Query Functions**:
+    - GetPairedPilot() - Get Pilot paired with Link Unit
+    - GetPairedLinkUnit() - Get Link Unit paired with Pilot
+    - GetAllLinkUnits() - Get all Link Units in player's Battle Area
+    - GetAllPilots() - Get all Pilots in player's Battle Area
+  - **Result Structure**:
+    - FGCGLinkResult - Success/failure with detailed error messages
+
+**Combat Integration**:
+- **Source/GundamTCG/Subsystems/GCGCombatSubsystem.cpp** (modified):
+  - Updated HasSummoningSickness() to use Link Unit subsystem
+  - Link Units can attack on deployment turn when paired with a Pilot
+  - Summoning sickness bypassed for paired Link Units
+
+**Game Mode Integration**:
+- **Source/GundamTCG/GameModes/GCGGameMode_1v1.h/cpp** (modified):
+  - RequestPairPilot() - Server RPC for pairing Pilot with Link Unit
+  - RequestUnpairPilot() - Server RPC for unpairing Pilot from Link Unit
+  - Full validation and error handling for pairing operations
+  - TODO markers for "WhenPaired" effect triggers (Phase 8 integration)
+
+**Test Card Database**:
+- **Content/Cards/Data/TestCards.csv** (25 cards):
+  - Link Units: RX-78-2 Gundam (Link Unit), Sazabi (Link Unit)
+  - Pilots: Amuro Ray, Char Aznable, Lalah Sune
+  - Link requirements: Color-based, Trait-based
+  - Full keyword coverage (Repair, Breach, Support, Blocker, FirstStrike, Burst, etc.)
+  - Commands, Bases, and regular Units for comprehensive testing
+
+#### Features Implemented
+
+- **Link Requirement System**:
+  - **Color Requirements**: Link Unit requires Pilot of specific color(s)
+  - **Trait Requirements**: Link Unit requires Pilot with specific trait(s)
+  - **Specific Card Requirements**: Link Unit requires specific Pilot card
+  - **Flexible Matching**: "Any of" for colors, "all of" for traits
+
+- **Pairing Mechanics**:
+  - Bidirectional pairing (both cards reference each other)
+  - Prevents duplicate pairing (one Pilot per Link Unit)
+  - Validates card types (only Pilots can pair, only Link Units can receive)
+  - Validates Link requirements before pairing
+
+- **Summoning Sickness Bypass**:
+  - Link Units can attack on the turn they're deployed if paired
+  - Integration with existing combat validation
+  - CanLinkUnitAttackThisTurn() checks pairing status and turn
+
+- **Server-Authoritative Pairing**:
+  - All pairing operations validated server-side
+  - Full error messages for invalid pairing attempts
+  - Blueprint-accessible for UI integration
+
+#### Link Requirement Examples
+
+**Example 1: Color Requirement**
+```cpp
+// GU-014 RX-78-2 Gundam (Link Unit)
+// LinkRequirements: Colors:Red
+// Can pair with any Red Pilot (Amuro Ray, Char Aznable, Lalah Sune)
+```
+
+**Example 2: Trait Requirement**
+```cpp
+// GU-023 Sazabi (Link Unit)
+// LinkRequirements: Traits:Pilot|Newtype
+// Can only pair with Pilots that have BOTH "Pilot" AND "Newtype" traits
+```
+
+**Example 3: Specific Card Requirement**
+```cpp
+// Hypothetical: Gundam Exia (Link Unit)
+// LinkRequirements: SpecificCardNumbers:GU-026
+// Can only pair with GU-026 (Setsuna F. Seiei)
+```
+
+#### Integration Points
+
+- **Phase 8 (Effect System)**: "WhenPaired" and "WhilePaired" effect triggers
+- **Phase 10 (UI/UMG)**: Pairing UI, visual indicators, drag-and-drop pairing
+- **Phase 11 (2v2 Team Battle)**: Team-wide Link Unit mechanics
+
+#### Technical Notes
+
+**Pairing Validation Flow**:
+1. Check both cards exist in Battle Area
+2. Validate card types (Link Unit + Pilot)
+3. Check neither card is already paired
+4. Validate Link requirements (color, trait, or specific card)
+5. Set PairedCardInstanceID on both cards (bidirectional)
+
+**Summoning Sickness Logic**:
+- Normal Unit: Can't attack if TurnDeployed == CurrentTurn
+- Link Unit (unpaired): Can't attack if TurnDeployed == CurrentTurn
+- Link Unit (paired): CAN attack even if TurnDeployed == CurrentTurn ✅
+
+**Data-Driven Design**:
+- All Link requirements defined in DataTable (FGCGCardData.LinkRequirements)
+- Zero hardcoded pairings
+- Easy to add new Link Units and requirements
+
+#### Files Created
+
+- Source/GundamTCG/Subsystems/GCGLinkUnitSubsystem.h (240 lines)
+- Source/GundamTCG/Subsystems/GCGLinkUnitSubsystem.cpp (360 lines)
+- Content/Cards/Data/TestCards.csv (25 test cards)
+- Source/GundamTCG/Legacy/README.md (Legacy code documentation)
+
+#### Files Modified
+
+- Source/GundamTCG/Subsystems/GCGCombatSubsystem.cpp - Updated summoning sickness check
+- Source/GundamTCG/GameModes/GCGGameMode_1v1.h - Added pairing RPCs
+- Source/GundamTCG/GameModes/GCGGameMode_1v1.cpp - Implemented pairing logic
+- PROJECT_STATUS_ASSESSMENT.md - Updated project status
+
+#### Code Cleanup
+
+- Moved old One Piece TCG code to Source/GundamTCG/Legacy/
+- Files moved: TCGTypes.h, TCGGameMode.h/cpp, TCGPlayerController.h/cpp, TCGPlayerState.h/cpp, TCGHandWidget.h/cpp
+- Added Legacy/README.md explaining legacy code purpose
+
+---
+
 ## [1.7.0-alpha] - 2025-11-15
 
 ### ✅ Phase 8 COMPLETE - Effect System (MVP)
