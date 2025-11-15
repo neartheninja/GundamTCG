@@ -7,6 +7,155 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.9.0-alpha] - 2025-11-15
+
+### ✅ Phase 11 COMPLETE - 2v2 Team Battle Mode
+
+**Achievement**: Implemented complete 2v2 Team Battle game mode with shared shields, team-wide Unit limits, and simultaneous turns.
+
+#### Added
+
+**2v2 Game Mode**:
+- **Source/GundamTCG/GameModes/GCGGameMode_2v2.h/cpp** (850 lines):
+  - **Team Management**:
+    - SetupTeams() - Initialize Team A (Players 0, 2) and Team B (Players 1, 3)
+    - GetTeamForPlayer() - Get team info for a player
+    - GetTeammateID() - Get teammate's player ID
+    - AreTeammates() - Check if two players are on same team
+    - GetTeamUnitCount() - Count total Units across both players on team
+    - CanTeamAddUnit() - Validate team-wide Unit limit (6 max per team)
+  - **Shared Shield Stack**:
+    - SetupTeamShields() - Create 8-shield stack alternating between players
+    - Shield order: P1, P2, P1, P2, P1, P2, P1, P2 (top to bottom)
+    - Each player contributes 4 shields from their deck
+  - **Shared Base**:
+    - SetupTeamEXBase() - Create shared EX Base (0 AP, 3 HP) for team
+    - Team shares one Base card, destroyed when HP reaches 0
+  - **Team Turns**:
+    - StartNewTurn() - Start turn for entire team
+    - EndTurn() - End turn for entire team
+    - CanPlayerAct() - Both teammates can act during their team's turn
+    - Simultaneous action resolution for both players
+  - **Team Combat**:
+    - RequestDeclareAttack_2v2() - Attack any opponent player
+    - RequestDeclareBlocker_2v2() - Block for yourself or teammate
+    - Team-wide combat coordination
+  - **Victory Conditions**:
+    - CheckTeamVictoryCondition() - Check if team lost (Base destroyed or all players lost)
+    - EndGameTeamVictory() - End game with winning team announcement
+
+#### Features Implemented
+
+- **Team Structure**:
+  - **Team A**: Players 0 and 2 (Player 0 is team leader)
+  - **Team B**: Players 1 and 3 (Player 1 is team leader)
+  - Team leader makes final decisions on conflicts
+  - FGCGTeamInfo tracks team state (PlayerIDs, SharedBase, SharedShieldStack, TotalUnitsOnField)
+
+- **Shared Shield Stack**:
+  - 8 shields total per team (4 per player)
+  - Shields alternate: P1, P2, P1, P2, P1, P2, P1, P2
+  - Drawn from each player's deck during setup
+  - Shared damage resolution (entire team takes damage together)
+
+- **Team-Wide Unit Limit**:
+  - Maximum 6 Units per team total (combined across both players)
+  - Enforced during card play validation
+  - GetTeamUnitCount() counts Units across both teammates
+
+- **Simultaneous Turns**:
+  - Both players on active team can act during their turn
+  - CanPlayerAct() returns true for both teammates
+  - Coordinated resource management
+  - Coordinated attack and block declarations
+
+- **Going Second Advantage**:
+  - Team B receives EX Resources (1 per player)
+  - SetupTeamEXResources() grants advantage to second team
+  - Balances first-move advantage
+
+- **Team Combat**:
+  - Can attack either opponent player
+  - Can block for teammate
+  - Target validation prevents attacking teammates
+  - Blocker validation allows blocking for teammate
+
+- **Victory Conditions**:
+  - Team loses when shared Base is destroyed (HP = 0)
+  - Team loses when both players have empty decks
+  - Winning team announcement
+
+#### Integration Points
+
+- **Phase 1 (Data Model)**: FGCGTeamInfo structure fully utilized
+- **Phase 2 (Game State)**: bIsTeamBattle flag, TeamA/TeamB tracking in GameState
+- **Phase 3 (Zones)**: Shared shield stack, shared Base section
+- **Phase 6 (Combat)**: Team-based attack/block with multi-target support
+- **Phase 10 (UI/UMG)**: Team Battle playmat, shared shield display, team Unit counter
+
+#### Technical Notes
+
+**Team Setup Flow**:
+1. Check 4 players present (CanStartGame)
+2. Initialize teams (SetupTeams)
+3. Setup shared shield stacks (8 shields per team, alternating)
+4. Setup shared EX Bases (0 AP, 3 HP)
+5. Grant EX Resources to Team B (going second advantage)
+6. Draw starting hands (5 cards per player)
+7. Start first turn (Team A goes first)
+
+**Turn Structure**:
+- Team A Turn (Players 0 and 2 act simultaneously)
+- Team B Turn (Players 1 and 3 act simultaneously)
+- Both teammates draw, place resources, play cards, attack during their turn
+- Turn ends when both teammates pass priority
+
+**Unit Limit Enforcement**:
+- Before playing a Unit, check GetTeamUnitCount(TeamID) < 6
+- If limit reached, card play is rejected
+- Applies to both players on team equally
+
+**Shared Shield Mechanics**:
+- When team takes damage, break shields from SharedShieldStack
+- Shields break from top (most recent) to bottom (oldest)
+- After all shields broken, damage goes to SharedBase
+- SharedBase destroyed = team loses
+
+**Data-Driven Design**:
+- All team mechanics server-authoritative
+- GameState tracks team info (replicated to clients)
+- Team validation in all player actions
+
+#### Files Created
+
+- Source/GundamTCG/GameModes/GCGGameMode_2v2.h (280 lines)
+- Source/GundamTCG/GameModes/GCGGameMode_2v2.cpp (570 lines)
+
+#### Example 2v2 Match Flow
+
+```cpp
+// Setup
+Team A: Player 0 (Leader), Player 2
+Team B: Player 1 (Leader), Player 3
+
+// Turn 1 - Team A
+// Player 0 draws, places resource, plays Unit
+// Player 2 draws, places resource, plays Unit
+// Both pass priority → Turn ends
+
+// Turn 2 - Team B
+// Player 1 draws, places resource, attacks Player 0
+// Player 3 draws, places resource, blocks for Player 1
+// Both pass priority → Turn ends
+
+// Combat
+// Player 0 attacks Player 1
+// Player 3 (teammate) can block for Player 1
+// Damage goes to Team B's shared shield stack
+```
+
+---
+
 ## [1.8.0-alpha] - 2025-11-15
 
 ### ✅ Phase 9 COMPLETE - Link Units & Pilot Pairing
