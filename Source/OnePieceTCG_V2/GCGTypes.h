@@ -186,6 +186,36 @@ enum class EGCGModifierDuration : uint8
     Permanent               UMETA(DisplayName = "Permanent")
 };
 
+/**
+ * Damage Source (FAQ Q97-99: Battle damage vs Effect damage)
+ * Used to track what type of damage was dealt for effect triggers
+ */
+UENUM(BlueprintType)
+enum class EGCGDamageSource : uint8
+{
+    None                    UMETA(DisplayName = "None"),
+    BattleDamage            UMETA(DisplayName = "Battle Damage"),       // AP damage during combat (Q97)
+    EffectDamage            UMETA(DisplayName = "Effect Damage"),       // Damage from card effects
+    ShieldDamage            UMETA(DisplayName = "Shield Damage")        // Damage from breaking shields
+};
+
+/**
+ * Target Scope (FAQ Q84: "Your Units" vs "Friendly Units")
+ * Defines which Units can be targeted by an effect
+ */
+UENUM(BlueprintType)
+enum class EGCGTargetScope : uint8
+{
+    Self                    UMETA(DisplayName = "Self"),                // This card only
+    YourUnits               UMETA(DisplayName = "Your Units"),          // Only your Units (1v1 and 2v2)
+    FriendlyUnits           UMETA(DisplayName = "Friendly Units"),      // Your + teammate's Units (2v2 only)
+    EnemyUnits              UMETA(DisplayName = "Enemy Units"),         // Opponent's Units
+    AllUnits                UMETA(DisplayName = "All Units"),           // All Units on field
+    YourPlayer              UMETA(DisplayName = "Your Player"),         // Yourself
+    OpponentPlayer          UMETA(DisplayName = "Opponent Player"),     // Opponent
+    AnyPlayer               UMETA(DisplayName = "Any Player")           // Any player
+};
+
 // ===========================================================================================
 // FORWARD DECLARATIONS
 // ===========================================================================================
@@ -289,6 +319,10 @@ struct FGCGEffectOperation
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Effect")
     FName Target;
 
+    // Target scope (FAQ Q84: for "Your Units" vs "Friendly Units" distinction)
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Effect")
+    EGCGTargetScope TargetScope;
+
     // Amount (e.g., for "Draw:2", Amount = 2)
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Effect")
     int32 Amount;
@@ -305,6 +339,7 @@ struct FGCGEffectOperation
     {
         OperationType = NAME_None;
         Target = NAME_None;
+        TargetScope = EGCGTargetScope::Self;
         Amount = 0;
         Duration = EGCGModifierDuration::Instant;
     }
@@ -673,6 +708,10 @@ struct FGCGCardInstance
     UPROPERTY(BlueprintReadWrite, Category = "Tracking")
     int32 ActivationCountThisTurn;
 
+    // Last damage source (FAQ Q97-99: for "destroyed with damage" effects)
+    UPROPERTY(BlueprintReadWrite, Category = "Tracking")
+    EGCGDamageSource LastDamageSource;
+
     // Default constructor
     FGCGCardInstance()
     {
@@ -689,6 +728,7 @@ struct FGCGCardInstance
         TurnDeployed = 0;
         bHasAttackedThisTurn = false;
         ActivationCountThisTurn = 0;
+        LastDamageSource = EGCGDamageSource::None;
     }
 
     // ===== HELPER FUNCTIONS =====
