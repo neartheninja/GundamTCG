@@ -7,6 +7,1030 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.7.0-alpha] - 2025-11-15
+
+### ✅ Phase 8 COMPLETE - Effect System (MVP)
+
+**Achievement**: Implemented data-driven card effect system with timing triggers, condition validation, cost payment, and operation execution framework.
+
+#### Added
+
+**Effect Subsystem**:
+- **Source/GundamTCG/Subsystems/GCGEffectSubsystem.h/cpp** (1000+ lines):
+  - **Effect Execution Framework**: TriggerEffects(), TriggerCardEffects(), ExecuteEffect()
+  - **Condition Validation**: CheckConditions(), CheckCondition() - YourTurn, OpponentTurn, HasActiveResources
+  - **Cost Payment**: CanPayCosts(), PayCosts(), PayCost() - RestResources, RestThisUnit, TrashSelf
+  - **Operation Execution**: ExecuteOperations(), ExecuteOperation()
+  - **Core Operations**:
+    - OP_DrawCards() - Draw X cards
+    - OP_DealDamageToUnit() - Damage target Unit
+    - OP_DealDamageToPlayer() - Damage player (shields/base)
+    - OP_DestroyUnit() - Destroy target Unit
+    - OP_GiveAP() - Grant AP buff with duration
+    - OP_GiveHP() - Grant HP buff with duration
+    - OP_GrantKeyword() - Grant keyword to target
+  - **Modifier Management**:
+    - AddModifier() - Apply stat modifier with duration
+    - RemoveModifiersBySource() - Remove modifiers from specific source
+    - CleanupExpiredModifiers() - Remove expired modifiers
+    - CleanupAllModifiers() - Clean all player modifiers
+  - **Result Structures**:
+    - FGCGEffectResult - Detailed effect execution results
+    - FGCGEffectContext - Effect context (source, target, turn, etc.)
+
+**Turn Flow Integration**:
+- **Source/GundamTCG/GameModes/GCGGameMode_1v1.cpp** (modified):
+  - **StartOfTurn Triggers**: Trigger all StartOfTurn effects in Start Phase → Start Step
+  - **EndOfTurn Triggers**: Trigger all EndOfTurn effects in End Phase → End Step
+  - **Modifier Cleanup**: Clean up UntilEndOfTurn modifiers in End Phase → Cleanup Step
+  - Effect subsystem include added
+
+#### Features Implemented
+
+- **Effect Triggering**:
+  - Trigger all effects with specific timing (OnDeploy, OnAttack, Burst, StartOfTurn, EndOfTurn, etc.)
+  - Trigger effects for specific cards based on timing
+  - Execute individual effects with full validation
+
+- **Condition System**:
+  - YourTurn - Check if source player's turn
+  - OpponentTurn - Check if opponent's turn
+  - HasActiveResources X - Check if player has X active resources
+  - Framework ready for additional conditions (HasLessHP, UnitInPlay, etc.)
+
+- **Cost System**:
+  - RestResources X - Rest X resources to pay cost
+  - RestThisUnit - Rest the source card
+  - TrashSelf - Move source card to Trash
+  - Framework ready for additional costs (DiscardCards, PayLife, etc.)
+
+- **Operation System**:
+  - **Draw** - Draw X cards (handles empty deck loss)
+  - **DealDamageToUnit** - Deal damage to target Unit (tracks destruction)
+  - **DealDamageToPlayer** - Deal damage to player (uses Combat Subsystem for shields/base)
+  - **DestroyUnit** - Move Unit to Trash
+  - **GiveAP/GiveHP** - Grant stat buffs with duration (Instant, UntilEndOfTurn, UntilEndOfBattle, WhileInPlay, Permanent)
+  - **GrantKeyword** - Grant keyword to target card
+  - Framework ready for additional operations (Search, Mill, Bounce, etc.)
+
+- **Modifier Management**:
+  - Add modifiers with duration tracking
+  - Modifiers apply to GetTotalAP() / GetTotalHP() calculations
+  - Automatic cleanup based on duration (end of turn, end of battle)
+  - Source tracking for "while in play" modifiers
+
+- **Target Resolution**:
+  - Self - Source card
+  - SourcePlayer - Source player
+  - OpponentPlayer - Opponent player
+  - TargetUnit - Specified target
+  - Framework ready for AllFriendlyUnits, AllEnemyUnits, RandomUnit, etc.
+
+#### Effect Data Structure
+
+Effects are defined in FGCGEffectData (from GCGTypes.h):
+```cpp
+- Timing: When effect triggers (OnDeploy, OnAttack, Burst, etc.)
+- Conditions: Requirements to activate (YourTurn, HasActiveResources, etc.)
+- Costs: Payment required (RestResources, RestThisUnit, etc.)
+- Operations: What happens (Draw, DealDamage, GiveAP, etc.)
+- bOncePerTurn: Can only activate once per turn
+```
+
+#### Integration Points
+
+- **Phase 6 (Combat)**: Ready for OnAttack, OnBlock, WhenAttacked, OnDestroyed triggers
+- **Phase 7 (Keywords)**: Keyword granting via GrantKeyword operation
+- **Phase 9 (Link Units)**: WhenPaired, WhilePaired effect timings
+- **Phase 10 (UI)**: Effect result display, activation prompts
+
+#### Technical Notes
+
+**Effect Execution Flow**:
+1. Trigger effects with specific timing
+2. For each effect:
+   - Check all conditions (all must be met)
+   - Check if can pay all costs
+   - Pay all costs
+   - Execute all operations
+3. Return combined results
+
+**Modifier Duration Handling**:
+- Instant: Applied once, not stored
+- UntilEndOfTurn: Cleaned up at End Phase → Cleanup Step
+- UntilEndOfBattle: Cleaned up when combat ends
+- WhileInPlay: Removed when source leaves play
+- Permanent: Never expires (rare)
+
+**Data-Driven Design**:
+- Zero hardcoded card effects
+- All card abilities defined in DataTable
+- Effects composed of: Timing + Conditions + Costs + Operations
+- Easy to add new cards without C++ changes
+
+#### MVP Limitations
+
+Phase 8 is an MVP (Minimum Viable Product) implementation:
+- Core framework complete and functional
+- Basic operations implemented (Draw, Damage, Destroy, Buff)
+- Basic conditions implemented (Turn checks, resource checks)
+- Basic costs implemented (Rest resources, rest self, trash self)
+- Additional operations/conditions/costs can be added as needed
+- Combat integration (OnAttack, OnDestroyed) ready but not yet triggered
+- Activated abilities (Activate・Main) framework ready but not yet UI-connected
+
+#### Files Created
+
+- Source/GundamTCG/Subsystems/GCGEffectSubsystem.h (500 lines)
+- Source/GundamTCG/Subsystems/GCGEffectSubsystem.cpp (750 lines)
+
+#### Files Modified
+
+- Source/GundamTCG/GameModes/GCGGameMode_1v1.cpp - Added effect triggers and modifier cleanup
+- Source/GundamTCG/GameModes/GCGGameMode_1v1.cpp - Added effect subsystem include
+
+---
+
+## [1.6.0-alpha] - 2025-11-15
+
+### ✅ Phase 7 COMPLETE - Keyword System
+
+**Achievement**: Implemented complete keyword processing system with all 9 gameplay keywords integrated into combat and turn flow.
+
+#### Added
+
+**Keyword Subsystem**:
+- **Source/GundamTCG/Subsystems/GCGKeywordSubsystem.h/cpp** (900 lines):
+  - **Keyword Checks**: HasKeyword(), GetKeywordValue(), DoesKeywordStack()
+  - **Repair Keyword**: ProcessRepair(), ProcessRepairForPlayer() - Heal X damage at end of turn (stacks)
+  - **Breach Keyword**: ProcessBreach() - Break X shields when destroying a Unit (stacks)
+  - **Support Keyword**: CalculateSupportBuff(), GetUnitsWithSupport() - Buff allies by +X AP (stacks)
+  - **FirstStrike Keyword**: HasFirstStrikeAdvantage(), ProcessFirstStrike() - Deal damage first, no retaliation if target destroyed
+  - **HighManeuver Keyword**: CanEvadeWithHighManeuver(), ProcessHighManeuver() - Pay 1 resource to evade attack
+  - **Suppression Keyword**: ProcessSuppression() - Destroy all shields simultaneously instead of one at a time
+  - **Burst Keyword**: HasBurst(), ProcessBurst() - When broken as shield, return to hand
+  - **LinkUnit Keyword**: IsLinkUnit(), IsPairedWithPilot(), CanLinkUnitAttack() - Attack on deploy turn when paired with Pilot
+  - **Blocker Keyword**: HasBlocker() - Helper for blocker validation (main logic in Combat Subsystem)
+  - **Keyword Utility**: GetKeywordName(), GetKeywordDescription() - Human-readable keyword info
+  - **Result Structure**: FGCGKeywordResult - Success/failure with detailed result data
+
+**Combat System Integration**:
+- **Source/GundamTCG/Subsystems/GCGCombatSubsystem.cpp** (modified):
+  - **Support Buffs**: Calculate Support AP buffs for attacker and blocker
+  - **FirstStrike Processing**: Deal damage first, prevent retaliation if target destroyed
+  - **Breach Processing**: Break extra shields when destroying Units
+  - **Suppression Processing**: Destroy all shields simultaneously on unblocked attacks
+  - **LinkUnit Integration**: Bypass summoning sickness when paired with Pilot
+  - All combat damage now accounts for keyword modifiers
+
+**Turn Flow Integration**:
+- **Source/GundamTCG/GameModes/GCGGameMode_1v1.cpp** (modified):
+  - **Repair at End of Turn**: Process Repair for both players during End Phase → End Step
+  - Automatic healing applied to all Units and Bases with Repair keyword
+  - Logging for all Repair healing
+
+#### Features Implemented
+
+- **Repair X (Stacking)**:
+  - Recovers X damage at end of turn
+  - Multiple instances stack (Repair 2 + Repair 1 = Repair 3)
+  - Processes for all Units in Battle Area and Base
+  - Can't heal beyond full HP
+  - Triggered automatically during End Phase
+
+- **Breach X (Stacking)**:
+  - Triggers when this Unit destroys another Unit in combat
+  - Breaks X shields from defending player
+  - Multiple instances stack additively
+  - Works with both blocked and unblocked attacks
+
+- **Support X (Stacking)**:
+  - All friendly Units get +X AP
+  - Multiple Support units stack (Support 2 + Support 1 = +3 AP total)
+  - Applies to all Units except the Support unit itself
+  - Calculated dynamically during combat
+
+- **FirstStrike (Non-stacking)**:
+  - Deals damage before opponent in combat
+  - If opponent is destroyed, no retaliation damage
+  - Only works if attacker has FirstStrike and defender doesn't
+  - Multiple instances don't stack (binary keyword)
+
+- **HighManeuver (Non-stacking)**:
+  - Pay 1 active resource to evade an attack
+  - Attack deals no damage if evaded
+  - Player choice to activate (manual trigger)
+  - Resource is rested as cost
+
+- **Suppression (Non-stacking)**:
+  - Destroys ALL shields simultaneously when dealing player damage
+  - Normal damage: breaks 1 shield at a time
+  - Suppression: breaks all shields in a single instance
+  - If no shields, damage goes to Base
+
+- **Burst (Non-stacking)**:
+  - Triggers when card is broken as a shield
+  - Card returns to hand instead of going to Trash
+  - TODO Phase 8: Trigger Burst effect if card has effect with Burst timing
+
+- **LinkUnit (Non-stacking)**:
+  - Link Units can attack on deployment turn when paired with a Pilot
+  - Pairing tracked via PairedCardInstanceID
+  - Bypasses summoning sickness rule
+  - If not paired, normal summoning sickness applies
+
+- **Blocker (Non-stacking)**:
+  - Already implemented in Phase 6 Combat System
+  - Keyword check helper added to Keyword Subsystem
+  - Can redirect attacks to this Unit
+
+#### Keyword Stacking Rules
+
+**Stacking Keywords** (values add together):
+- Repair X: Repair 2 + Repair 1 = Repair 3
+- Breach X: Breach 2 + Breach 1 = Breach 3
+- Support X: Support 2 + Support 1 = +3 AP to allies
+
+**Non-Stacking Keywords** (binary on/off):
+- Blocker: Has it or doesn't
+- FirstStrike: Has it or doesn't
+- HighManeuver: Has it or doesn't
+- Suppression: Has it or doesn't
+- Burst: Has it or doesn't
+- LinkUnit: Has it or doesn't
+
+#### Integration Points
+
+- **Phase 6 (Combat)**: All combat keywords integrated ✅
+- **Phase 8 (Effect System)**: Burst effect triggers, keyword-granting effects, "On Attack" triggers
+- **Phase 9 (Link Units)**: Pilot pairing system, Link requirements validation
+
+#### Technical Notes
+
+**Keyword Processing Flow**:
+1. Check if card has keyword using HasKeyword()
+2. Get keyword value using GetKeywordValue() (for stacking keywords)
+3. Process keyword effect using specific Process function
+4. Return FGCGKeywordResult with success/failure and data
+
+**Support Buff Calculation**:
+- Scans all Units in player's Battle Area
+- Sums Support values from all allies
+- Applied to final AP calculation in combat
+- Dynamically calculated (no stored buffs)
+
+**FirstStrike Combat**:
+- Checked before normal damage
+- If attacker has advantage, deals damage first
+- If defender destroyed, skip defender's damage
+- Otherwise, normal mutual damage applies
+
+**Suppression vs Normal Shield Breaking**:
+- Normal: 1 shield per damage instance (even if 10 damage)
+- Suppression: ALL shields destroyed in single instance
+- After shields gone, damage goes to Base
+
+**Repair Timing**:
+- Processed during End Phase → End Step
+- Applies to both players (not just active player)
+- Processes all Units and Base (if Base has Repair)
+- Reduces CurrentDamage (can't exceed full HP)
+
+**LinkUnit Pairing**:
+- PairedCardInstanceID stores paired Pilot's InstanceID
+- Bypass summoning sickness if paired with Pilot (CardType check)
+- Full pairing validation in Phase 9
+
+#### Files Created
+
+- Source/GundamTCG/Subsystems/GCGKeywordSubsystem.h (400 lines)
+- Source/GundamTCG/Subsystems/GCGKeywordSubsystem.cpp (500 lines)
+
+#### Files Modified
+
+- Source/GundamTCG/Subsystems/GCGCombatSubsystem.cpp - Integrated keyword processing in combat
+- Source/GundamTCG/GameModes/GCGGameMode_1v1.cpp - Added Repair processing in End Phase
+- Source/GundamTCG/GameModes/GCGGameMode_1v1.cpp - Added keyword subsystem include
+
+#### Testing Recommendations
+
+1. Test Repair keyword healing at end of turn
+2. Test Support stacking (multiple Support units)
+3. Test FirstStrike combat (with and without killing blocker)
+4. Test Breach shield breaking after destroying Units
+5. Test Suppression destroying all shields
+6. Test HighManeuver evasion (resource cost payment)
+7. Test LinkUnit summoning sickness bypass
+8. Test keyword stacking rules (Repair 2 + Repair 1 = 3)
+9. Test non-stacking keywords (FirstStrike + FirstStrike = still just FirstStrike)
+10. Test Burst return to hand when shield broken
+
+---
+
+## [1.5.0-alpha] - 2025-11-15
+
+### ✅ Phase 6 COMPLETE - Combat System
+
+**Achievement**: Implemented complete combat system with attack declaration, blocker declaration, damage calculation, shield breaking mechanics, and victory conditions.
+
+#### Added
+
+**Combat Subsystem**:
+- **Source/GundamTCG/Subsystems/GCGCombatSubsystem.h/cpp** (820 lines):
+  - **Attack Declaration**: DeclareAttack() - Validates and declares attacks with summoning sickness checks
+  - **Blocker Declaration**: DeclareBlocker() - Validates and declares blockers (requires Blocker keyword)
+  - **Combat Validation**: CanAttack(), CanBlock(), ValidateAttacker(), ValidateBlocker()
+  - **Damage Calculation**: CalculateDamage() - Unit-to-unit damage with AP comparison
+  - **Player Damage**: DealDamageToPlayer() - Shield breaking and base damage
+  - **Shield Breaking**: BreakShields() - Removes shields one at a time, moves to trash
+  - **Combat Resolution**: ResolveAttack(), ResolveAllAttacks() - Execute combat damage and effects
+  - **Combat Structures**:
+    - FGCGAttackDeclaration - Tracks attacker, defender, blocker, resolution state
+    - FGCGCombatResult - Success/failure with error messages and result data
+  - **Victory Conditions**: Check for base destruction when player takes damage with no shields
+  - **Combat Cleanup**: ClearAttacks() - Reset combat state after resolution
+
+**Game Mode Updates**:
+- **Source/GundamTCG/GameModes/GCGGameMode_1v1.h/cpp**:
+  - RequestDeclareAttack() - Server RPC for declaring attacks
+  - RequestDeclareBlocker() - Server RPC for declaring blockers
+  - ResolveCombat() - Server RPC for resolving all attacks
+  - Integration with CombatSubsystem for all combat actions
+  - Victory condition checking after combat damage
+
+#### Features Implemented
+
+- **Attack Declaration System**:
+  - Summoning sickness validation (units can't attack turn deployed)
+  - Already attacked check (once per turn unless keyword allows)
+  - Active state validation (rested units can't attack)
+  - Card type validation (only Units can attack)
+  - Target validation (can't attack own player)
+  - Rest attacker when attack declared
+  - Track attack in GameState->CurrentAttacks array
+
+- **Blocker Declaration System**:
+  - Blocker keyword requirement (only Units with Blocker can block)
+  - Active state validation (rested units can't block)
+  - One blocker per attack limit
+  - Redirect attack to blocker
+  - Rest blocker when declared
+
+- **Damage Calculation**:
+  - **Unit vs Unit**: Both deal damage to each other based on AP
+  - **Unit vs Base**: Deal AP damage to defending player's base
+  - **Unblocked Attack**: Deal damage directly to player
+  - **Blocked Attack**: Attacker fights blocker instead
+  - Damage applied as CurrentDamage on card instances
+  - Unit destroyed when CurrentDamage ≥ HP
+
+- **Shield Breaking Mechanics**:
+  - Player must have shields to absorb damage
+  - One shield broken per damage instance (not per damage amount)
+  - Shield moved from ShieldStack to Trash
+  - If no shields remaining, damage goes to Base
+  - Shield count checked before damage application
+
+- **Base Damage & Victory Conditions**:
+  - Base takes damage when player has no shields
+  - Damage tracked as CurrentDamage on Base card
+  - Player loses when Base CurrentDamage ≥ Base HP
+  - bHasLost flag set on PlayerState
+  - Game ends immediately when player loses
+
+- **Combat Resolution Flow**:
+  1. Attack declared → Attacker rested, attack added to CurrentAttacks
+  2. Blocker declared (optional) → Blocker rested, attack redirected
+  3. ResolveCombat() called → All attacks resolved sequentially
+  4. For each attack:
+     - Calculate damage (attacker AP vs blocker/base)
+     - Apply damage to units
+     - Deal player damage if unblocked
+     - Break shields or damage base
+     - Check for destroyed units
+     - Check for player loss
+  5. Clear attacks → Reset combat state
+
+#### Combat Validation Rules
+
+**Can Attack If**:
+- Card type is Unit
+- Not rested (bIsActive = true)
+- Not deployed this turn (TurnDeployed < CurrentTurn)
+- Has not attacked this turn (bHasAttackedThisTurn = false)
+- Owner is attacking player
+- Target is different player
+
+**Can Block If**:
+- Card has Blocker keyword
+- Card type is Unit
+- Not rested (bIsActive = true)
+- Owner is defending player
+- Attack is not already blocked
+
+#### Integration Points
+
+- **Phase 7 (Keywords)**: FirstStrike, HighManeuver, Suppression, Breach combat keywords
+- **Phase 8 (Effect System)**: "On Attack", "On Block", "On Damage", "On Destroy" triggers
+- **Phase 5 (Player Actions)**: Combat integrated with existing action validation
+
+#### Technical Notes
+
+**Combat State Management**:
+- All attacks tracked in GameState->CurrentAttacks array
+- bAttackInProgress flag prevents multiple simultaneous combat phases
+- Attacks cleared after resolution (no persistent combat state)
+
+**Summoning Sickness**:
+- Units can't attack on turn deployed
+- TurnDeployed compared to CurrentTurn number
+- Link Units bypass this (Phase 9 implementation)
+
+**Shield Stack Order**:
+- Top shield broken first (index 0)
+- Shield moved to Trash zone (public discard pile)
+- Empty shield stack handled gracefully
+
+**Victory Condition Check**:
+- Checked after every player damage instance
+- Checked after every combat resolution
+- Game ends immediately when Base destroyed
+
+**Damage Application**:
+- Unit damage: CurrentDamage += AP (mutual for unit vs unit)
+- Base damage: CurrentDamage += AP (one-way)
+- Units destroyed when CurrentDamage ≥ HP
+- Bases trigger loss when CurrentDamage ≥ HP
+
+#### Files Created
+
+- Source/GundamTCG/Subsystems/GCGCombatSubsystem.h (330 lines)
+- Source/GundamTCG/Subsystems/GCGCombatSubsystem.cpp (490 lines)
+
+#### Files Modified
+
+- Source/GundamTCG/GameModes/GCGGameMode_1v1.h - Added combat request functions
+- Source/GundamTCG/GameModes/GCGGameMode_1v1.cpp - Implemented combat handlers
+
+---
+
+## [1.4.0-alpha] - 2025-11-15
+
+### ✅ Phase 5 COMPLETE - Player Actions
+
+**Achievement**: Implemented complete player action system with validation, cost payment, and card playing from hand.
+
+#### Added
+
+**Player Action Subsystem**:
+- **Source/GundamTCG/Subsystems/GCGPlayerActionSubsystem.h/cpp** (700 lines):
+  - **Action Request System**: FGCGPlayerActionRequest structure for all player actions
+  - **Action Validation**: ValidateAction(), CanPlayCard(), CanPayCost(), ValidatePlayTiming(), ValidatePlayerPriority()
+  - **Action Execution**: ExecuteAction(), ExecutePlayCard(), ExecuteDiscard()
+  - **Play Card from Hand**: PlayCardFromHand() - Units → Battle Area, Bases → Base Section, Commands → Trash
+  - **Cost Payment**: PayCost() - Rest resources to pay card costs, CanPayCost() validation
+  - **Resource Placement**: PlaceCardAsResource() - Manual resource placement from hand (1 per turn limit)
+  - **Discard System**: DiscardCard(), DiscardToHandLimit() - Discard to hand limit (10 cards)
+  - **Action Result System**: FGCGPlayerActionResult with success/failure and error messages
+
+**Game Mode Updates**:
+- **Source/GundamTCG/GameModes/GCGGameMode_1v1.h/cpp**:
+  - RequestPlayCard() - Server RPC for playing cards
+  - RequestPlaceResource() - Server RPC for placing resources manually
+  - RequestDiscardCards() - Server RPC for discarding cards
+  - Integration with PlayerActionSubsystem for all player actions
+
+#### Features Implemented
+
+- **Complete Action System**: All player actions validated and executed through centralized subsystem
+- **Cost Payment**: Resources automatically rested to pay costs (first active resources used)
+- **Play Validation**:
+  - Check play timing (Main Phase only)
+  - Check player priority (active player only)
+  - Check cost (sufficient active resources)
+  - Check zone capacity (6 Units, 15 Resources, 1 Base)
+- **Card Playing**:
+  - Units: Move to Battle Area (rested by default)
+  - Bases: Move to Base Section (replaces EX Base if present)
+  - Commands: Move to Trash (effect resolution stub for Phase 8)
+  - Set TurnDeployed for Units
+- **Resource Management**:
+  - Manual resource placement from hand (1 per turn)
+  - Face-up/face-down option (stub for Phase 7)
+  - Resource limit enforcement (max 15)
+- **Hand Limit**: Discard to 10 cards at end of turn
+
+#### Action Types Supported
+
+- **PlayCard**: Play Unit/Command/Base from hand
+- **PlaceResource**: Place card from hand as resource (manual)
+- **DiscardCard**: Discard card from hand
+- **PassPriority**: Pass priority to advance phase
+
+#### Integration Points
+
+- **Phase 6 (Combat)**: Attack declaration ready
+- **Phase 7 (Keywords)**: Keyword processing on play ready
+- **Phase 8 (Effect System)**: "On Deploy" effects, Command resolution, Priority system
+
+#### Technical Notes
+
+**Action Validation Flow**:
+1. Client requests action via GameMode RPC
+2. GameMode calls PlayerActionSubsystem
+3. Subsystem validates action
+4. If valid, subsystem executes action
+5. Result returned to client
+
+**Cost Payment**:
+- Rests first available active resources
+- Validates sufficient resources before execution
+- Atomic operation (all-or-nothing)
+
+**Zone Transitions**:
+- All card movements go through ZoneSubsystem
+- Zone entry/exit rules applied automatically
+- Units enter Battle Area rested (set by ZoneSubsystem)
+
+#### Files Created
+
+- Source/GundamTCG/Subsystems/GCGPlayerActionSubsystem.h (330 lines)
+- Source/GundamTCG/Subsystems/GCGPlayerActionSubsystem.cpp (370 lines)
+
+#### Files Modified
+
+- Source/GundamTCG/GameModes/GCGGameMode_1v1.h - Added player action request functions
+- Source/GundamTCG/GameModes/GCGGameMode_1v1.cpp - Implemented player action handlers
+
+---
+
+## [1.3.0-alpha] - 2025-11-15
+
+### ✅ Phase 4 COMPLETE - Card Database System
+
+**Achievement**: Implemented centralized card database subsystem with DataTable support, token definitions, and deck validation.
+
+#### Added
+
+**Card Database Subsystem**:
+- **Source/GundamTCG/Subsystems/GCGCardDatabase.h/cpp**:
+  - Game Instance Subsystem for centralized card data management
+  - **Card Data Lookup**: GetCardData(), CardExists(), GetAllCards(), GetCardsByType(), GetCardsByColor()
+  - **Token Definitions**: EX Base (0 AP, 3 HP), EX Resource (0 AP, 0 HP)
+  - **Deck Validation**: ValidateDeck() (50 cards, max 4 copies, max 1 Base), ValidateResourceDeck() (10 cards)
+  - **DataTable Management**: SetCardDataTable(), ReloadCardData(), GetCardCount(), GetDatabaseStats()
+  - Card data cache for O(1) lookups
+
+**Documentation**:
+- **Documentation/CARD_DATABASE_GUIDE.md** (450 lines):
+  - Complete CSV format reference with 10 sample cards
+  - DataTable import instructions
+  - Card text formatting guide
+  - Deck validation rules
+  - API reference and troubleshooting
+
+#### Modified Files
+
+**Game Mode Base**:
+- **Source/GundamTCG/GameModes/GCGGameModeBase.h/cpp**:
+  - Updated to use Card Database subsystem
+  - GetCardData() queries subsystem
+  - BeginPlay() passes DataTable to subsystem
+  - CreateCardInstance() populates all card data from database (CardName, CardType, Colors, Level, Cost, AP, HP, Keywords)
+  - CreateTokenInstance() simplified (stats from token definitions)
+
+#### Features Implemented
+
+- **Centralized Card Data**: Single source of truth via subsystem
+- **Token System**: EX Base and EX Resource hard-coded definitions
+- **Deck Validation**: Comprehensive validation with error messages (4-copy limit, 1 Base, deck size)
+- **Card Instance Creation**: Fully populates card data from database
+- **DataTable Integration**: CSV import, hot-reload support, Blueprint-accessible
+
+#### CSV Format Example
+
+```csv
+CardNumber,CardName,CardText,CardType,Colors,Level,Cost,AP,HP,Keywords,Rarity,SetNumber,CollectorNumber
+GU-001,"RX-78-2 Gundam","[Activate・Main] (1) Rest this card: Draw 1 card.",Unit,"Red",3,3,6,7,"Repair(2)",Rare,SET1,001
+```
+
+#### Integration Points
+
+- **Phase 5**: Card play validation uses database
+- **Phase 6**: Unit stats (AP/HP) from database
+- **Phase 7**: Keywords loaded from database
+- **Phase 8**: Card text parsing from database
+
+#### Files Created
+
+- Source/GundamTCG/Subsystems/GCGCardDatabase.h (200 lines)
+- Source/GundamTCG/Subsystems/GCGCardDatabase.cpp (380 lines)
+- Documentation/CARD_DATABASE_GUIDE.md (450 lines)
+
+#### Files Modified
+
+- Source/GundamTCG/GameModes/GCGGameModeBase.h
+- Source/GundamTCG/GameModes/GCGGameModeBase.cpp
+
+---
+
+## [1.2.0-alpha] - 2025-11-15
+
+### ✅ Phase 3 COMPLETE - Zone Management & Player State
+
+**Achievement**: Implemented complete zone management system with card movement, validation, and player state tracking. Filled in all Phase 2 gameplay stubs to create functional turn/phase flow.
+
+#### Added
+
+**Zone Management Subsystem**:
+- **Source/GundamTCG/Subsystems/GCGZoneSubsystem.h/cpp**:
+  - Game Instance Subsystem for centralized zone operations
+  - **Card Movement**:
+    - MoveCard() - Move single card between zones with validation
+    - MoveCards() - Move multiple cards at once
+    - ValidateZoneTransition() - Check if zone transition is legal
+    - ApplyZoneEntryRules() - Apply zone-specific rules when entering (e.g., units enter rested)
+    - ApplyZoneExitRules() - Clean up when leaving zones (e.g., remove attached cards)
+  - **Zone Validation**:
+    - CanAddToZone() - Check if zone can accept card
+    - GetZoneCount() - Count cards in zone
+    - GetZoneMaxCapacity() - Get zone limit (6 Units, 15 Resources, 1 Base, etc.)
+    - IsZoneAtCapacity() - Check if zone is full
+  - **Zone Queries**:
+    - GetCardsInZone() - Get all cards in a zone
+    - FindCardInZone() - Find card by instance ID
+  - **Zone Manipulation**:
+    - ShuffleZone() - Fisher-Yates shuffle for Deck/ResourceDeck
+    - DrawTopCard() - Draw single card from top of ordered zone
+    - DrawTopCards() - Draw multiple cards
+    - PeekTopCard() - Look at top card without removing
+  - **Special Operations**:
+    - ActivateAllCards() - Set all cards to active (untap all)
+    - RestAllCards() - Set all cards to rested
+    - ClearAllDamage() - Remove damage from all cards in zone
+  - **Helper Functions**:
+    - GetZoneName() - Human-readable zone names
+    - IsZonePublic() - Check if zone is visible to all players
+    - IsZoneOrdered() - Check if zone has specific card order
+
+**Player State Class**:
+- **Source/GundamTCG/PlayerState/GCGPlayerState.h/cpp**:
+  - Replicated player-specific state
+  - **All 9 Card Zones** (replicated TArrays):
+    1. Deck - Main deck (50 cards, ordered, top = index 0)
+    2. ResourceDeck - Resource deck (10 cards, ordered, top = index 0)
+    3. Hand - Cards in hand (max 10 at end of turn)
+    4. ResourceArea - Resources (max 15)
+    5. BattleArea - Units in play (max 6, shared in 2v2)
+    6. ShieldStack - Shield cards (6 in 1v1, 8 in 2v2, ordered)
+    7. BaseSection - Base card or EX Base token (max 1)
+    8. Trash - Discard pile (public, unordered)
+    9. Removal - Removed from game (private, unordered)
+  - **Deck Lists**:
+    - MainDeckList - Card numbers for main deck (for validation)
+    - ResourceDeckList - Card numbers for resource deck
+  - **Player Flags**:
+    - bHasLost - Has player lost the game
+    - bHasPriority - Can player take actions
+    - bHasPlacedResourceThisTurn - Track resource placement
+    - bHasDrawnThisTurn - Track draw for effects
+  - **Zone Query Functions**:
+    - GetActiveResourceCount() - Count active (untapped) resources
+    - GetTotalResourceCount() - Count all resources
+    - GetShieldCount() - Count shields
+    - GetUnitCount() - Count units in battle
+    - GetHandSize() - Count cards in hand
+    - GetDeckSize() - Count cards in deck
+    - GetResourceDeckSize() - Count cards in resource deck
+  - **Validation Functions**:
+    - CanPayCost() - Check if enough active resources
+    - CanAddUnitToBattle() - Check if battle area has space
+    - CanAddResource() - Check if resource area has space
+  - **Helper Functions**:
+    - ResetTurnFlags() - Clear turn flags at start of turn
+    - GetAllCards() - Get all cards across all zones
+    - FindCardByInstanceID() - Find card by ID in any zone
+  - **Blueprint Events**:
+    - OnCardAddedToZone() - Notify when card enters zone
+    - OnCardRemovedFromZone() - Notify when card leaves zone
+    - OnPlayerLost() - Notify when player loses
+
+#### Phase 2 Stubs Filled In
+
+**Game Mode 1v1 Updates** (Source/GundamTCG/GameModes/GCGGameMode_1v1.cpp):
+- **ExecuteDrawPhase()** - NOW FUNCTIONAL:
+  - Checks if deck is empty before drawing
+  - Player loses if must draw from empty deck (victory condition)
+  - Draws 1 card using ZoneSubsystem
+  - Moves card from Deck to Hand
+  - Sets bHasDrawnThisTurn flag
+
+- **ExecuteResourcePhase()** - NOW FUNCTIONAL:
+  - Draws 1 card from Resource Deck
+  - Moves to Resource Area using ZoneSubsystem
+  - Card enters active (untapped) per zone entry rules
+  - Handles empty Resource Deck gracefully
+  - Sets bHasPlacedResourceThisTurn flag
+
+- **ActivateAllCardsForPlayer()** - NOW FUNCTIONAL:
+  - Uses ZoneSubsystem->ActivateAllCards()
+  - Activates all cards in BattleArea, ResourceArea, BaseSection
+  - Resets turn flags for new turn
+  - Logs activation count
+
+- **ProcessHandLimit()** - NOW FUNCTIONAL:
+  - Checks hand size at end of turn
+  - Logs requirement if hand ≥ 11 cards
+  - Stub for player discard selection (Phase 5)
+
+- **SetupPlayerDecks()** - NOW FUNCTIONAL:
+  - Creates card instances from deck lists
+  - Populates Deck and ResourceDeck zones
+  - Shuffles both decks using ZoneSubsystem
+  - Stores deck lists in PlayerState
+
+- **SetupPlayerShields()** - NOW FUNCTIONAL:
+  - Draws 6 cards from top of Deck
+  - Moves cards to ShieldStack zone
+  - Handles insufficient deck size
+
+- **SetupEXBase()** - NOW FUNCTIONAL:
+  - Creates EX Base token (0 AP, 3 HP)
+  - Places in BaseSection zone
+  - Sets token as active
+
+- **SetupEXResource()** - NOW FUNCTIONAL:
+  - Creates EX Resource token (for Player 2)
+  - Places in ResourceArea zone
+  - Sets token as active
+
+- **InitializeGame()** - ENHANCED:
+  - Draws initial 5-card hands for both players
+  - Uses ZoneSubsystem for card drawing
+  - Moves cards from Deck to Hand
+
+#### Features Implemented
+
+**Complete Zone Management**:
+- All card movements go through centralized subsystem
+- Zone limits enforced (6 Units, 15 Resources, 1 Base)
+- Zone-specific rules applied automatically (units enter rested, resources enter active, etc.)
+- Public/private zone handling
+- Ordered/unordered zone handling
+
+**Victory Conditions**:
+- Player loses if they must draw from empty deck
+- Foundation for shield damage loss condition (Phase 6: Combat)
+
+**Turn Flow Now Functional**:
+```
+Turn Start
+    ↓
+Start Phase → Activate all cards, reset turn flags
+    ↓
+Draw Phase → Draw 1 card (lose if deck empty)
+    ↓
+Resource Phase → Place 1 resource (automatically active)
+    ↓
+Main Phase → [Player actions - stubs for Phase 5]
+    ↓
+End Phase → Hand limit check (discard to 10 if needed)
+    ↓
+Next Turn
+```
+
+**Initial Game Setup**:
+- Deck creation and shuffling
+- Shield stack setup (6 shields from deck)
+- EX Base tokens for both players
+- EX Resource token for Player 2 (going second advantage)
+- Initial 5-card hands
+
+**Full Replication**:
+- All zone arrays replicated to clients
+- Player flags replicated
+- Zone changes automatically sync across network
+
+#### Integration Points
+
+**Ready for Phase 4 (Card Database)**:
+- CreateCardInstance() uses card database lookup
+- All card data comes from DataTable
+- Token definitions ready
+
+**Ready for Phase 5 (Player Actions)**:
+- Zone validation functions ready (CanPayCost, CanAddUnitToBattle, etc.)
+- Hand discard selection needs UI
+- Card play validation ready
+
+**Ready for Phase 6 (Combat)**:
+- Shield damage handling needs combat implementation
+- BattleArea manipulation ready
+- Damage tracking on cards implemented
+
+**Ready for Phase 8 (Effect System)**:
+- Zone entry/exit hooks ready for effects
+- Modifier application can hook into zone rules
+
+#### Technical Notes
+
+**Zone Array Access**:
+- Subsystem accesses PlayerState zone arrays directly
+- Public zone arrays for subsystem efficiency
+- Replication handles network sync
+
+**Fisher-Yates Shuffle**:
+- Proper randomization for deck shuffling
+- Uses FMath::RandRange for UE5 compatibility
+
+**Zone Transition Validation**:
+- Prevents invalid moves (e.g., can't move from Removal)
+- Prevents same-zone moves
+- Validates card types per zone
+
+**Performance**:
+- O(1) zone access via direct array pointers
+- O(n) for card searches within zones
+- Efficient batch operations (MoveCards, ActivateAllCards)
+
+#### Files Modified
+
+- Source/GundamTCG/GameModes/GCGGameMode_1v1.cpp - Filled in all gameplay stubs
+
+#### Files Created
+
+- Source/GundamTCG/Subsystems/GCGZoneSubsystem.h (270 lines)
+- Source/GundamTCG/Subsystems/GCGZoneSubsystem.cpp (580 lines)
+- Source/GundamTCG/PlayerState/GCGPlayerState.h (270 lines)
+- Source/GundamTCG/PlayerState/GCGPlayerState.cpp (220 lines)
+
+#### Testing Recommendations
+
+1. Test deck setup and shuffling
+2. Test draw phase (normal draw + empty deck loss)
+3. Test resource placement
+4. Test card activation at start of turn
+5. Test hand limit checking
+6. Test shield setup
+7. Test EX Base/Resource token creation
+8. Test zone capacity limits
+9. Test initial 5-card hand drawing
+10. Test network replication of all zones
+
+---
+
+## [1.1.0-alpha] - 2025-11-15
+
+### ✅ Phase 2 COMPLETE - Game Mode & State System
+
+**Achievement**: Implemented complete turn/phase state machine for 1v1 matches with server-authoritative game flow.
+
+#### Added
+
+**Game Mode Classes**:
+- **Source/GundamTCG/GameModes/GCGGameModeBase.h/cpp**:
+  - Base game mode with card database management
+  - Player management (GetPlayerStateByID, GetPlayerControllerByID, GetAllPlayerStates)
+  - Card instance creation (CreateCardInstance, CreateTokenInstance)
+  - Instance ID generation system
+  - Blueprint events (OnGameInitialized, OnPlayerJoined, OnPlayerLeft)
+
+- **Source/GundamTCG/GameModes/GCGGameMode_1v1.h/cpp**:
+  - Complete turn/phase state machine implementation
+  - Turn management (StartNewTurn, AdvancePhase, EndTurn)
+  - All 5 phase handlers:
+    1. ExecuteStartPhase() - Active Step → Start Step
+    2. ExecuteDrawPhase() - Draw 1 card mandatory
+    3. ExecuteResourcePhase() - Place 1 Resource mandatory
+    4. ExecuteMainPhase() - Player actions (waits for input)
+    5. ExecuteEndPhase() - Action → End → Hand → Cleanup steps
+  - Automatic phase progression for Start/Draw/Resource/End phases
+  - Manual phase advancement for Main Phase (player passes priority)
+  - Timer-based phase delays (configurable)
+  - Game setup helpers (SetupPlayerDecks, SetupPlayerShields, SetupEXBase, SetupEXResource)
+  - Victory condition checking (stub for Phase 3)
+  - Blueprint events (OnPhaseExecuted, OnTurnStarted, OnTurnEnded)
+
+**Game State Class**:
+- **Source/GundamTCG/GameState/GCGGameState.h/cpp**:
+  - Replicated game state with turn/phase tracking
+  - Properties: TurnNumber, CurrentPhase, ActivePlayerID, bGameInProgress, bGameOver, WinnerPlayerID
+  - Phase/step tracking (CurrentStartPhaseStep, CurrentEndPhaseStep)
+  - Combat tracking (bAttackInProgress, CurrentAttack)
+  - Team Battle support (bIsTeamBattle, TeamA, TeamB)
+  - Replication callbacks (OnRep_TurnNumber, OnRep_CurrentPhase, OnRep_ActivePlayerID)
+  - Helper functions:
+    - GetTeamForPlayer() - Get team info for player ID
+    - IsPlayerActive() - Check if player is currently active
+    - IsPlayerTeamActive() - Check if player's team is active (2v2)
+    - GetPlayerTeamID() - Get player's team ID
+    - ArePlayersTeammates() - Check if two players are on same team
+    - GetPhaseName() - Get human-readable phase name
+    - GetStepName() - Get human-readable step name
+  - Blueprint events (OnTurnNumberChanged, OnPhaseChanged, OnActivePlayerChanged, OnGameStarted, OnGameEnded)
+
+#### Features Implemented
+
+**Turn Structure (Complete)**:
+```
+Turn Start
+    ↓
+Start Phase (Active Step → Start Step)
+    ↓ [auto-advance 2s]
+Draw Phase (Draw 1 card)
+    ↓ [auto-advance 2s]
+Resource Phase (Place 1 Resource)
+    ↓ [auto-advance 2s]
+Main Phase (Play cards, attack, activate abilities)
+    ↓ [player passes priority]
+End Phase (Action → End → Hand → Cleanup)
+    ↓ [auto-advance 2s]
+Turn End → Next Turn Start
+```
+
+**Server-Authoritative Architecture**:
+- All game logic executes on server only
+- Game state replicates to all clients via AGCGGameState
+- Clients receive updates through OnRep callbacks
+- UI updates driven by Blueprint events
+
+**Automatic Phase Progression**:
+- Start, Draw, Resource, End phases auto-advance after configurable delay (default 2 seconds)
+- Main Phase waits for player input (RequestPassPriority)
+- ShouldPhaseAutoAdvance() determines advancement behavior per phase
+
+**Team Battle (2v2) Foundation**:
+- TeamInfo structures track team composition
+- Helper functions support team-based queries
+- Simultaneous turn logic ready for Phase 11 implementation
+
+**Token Support**:
+- CreateTokenInstance() for EX Base and EX Resource tokens
+- Instance ID tracking for all tokens
+- Token flags (bIsToken, TokenType)
+
+#### Integration Points (Stubs for Future Phases)
+
+**Phase 3 Integration** (Zone Management):
+- Draw card functionality (ExecuteDrawPhase)
+- Place resource functionality (ExecuteResourcePhase)
+- Activate all cards (ActivateAllCardsForPlayer)
+- Hand limit enforcement (ProcessHandLimit)
+- Shield setup (SetupPlayerShields)
+- Deck setup (SetupPlayerDecks)
+
+**Phase 8 Integration** (Effect System):
+- "At start of turn" effect triggers (ExecuteStartPhase)
+- "At end of turn" effect triggers (ExecuteEndPhase)
+- Action timing support (ExecuteEndPhase - Action Step)
+- Turn effect cleanup (CleanupTurnEffects)
+- Repair keyword processing (ExecuteEndPhase - End Step)
+
+#### Technical Achievement
+
+This phase establishes:
+- ✅ **Complete turn/phase state machine** (all 5 phases with sub-steps)
+- ✅ **Server-authoritative game flow** (clients replicate, server executes)
+- ✅ **Automatic and manual phase advancement** (configurable behavior)
+- ✅ **Replication architecture** (OnRep callbacks, Blueprint events)
+- ✅ **Team Battle infrastructure** (team tracking, helper functions)
+- ✅ **Token creation system** (EX Base, EX Resource)
+- ✅ **Blueprint integration** (events for UI updates)
+- ✅ **Clean separation of concerns** (BaseGameMode, GameState, 1v1GameMode)
+
+#### Files Created
+
+**Phase 2 Files** (6 files, 1,700+ lines):
+1. Source/GundamTCG/GameModes/GCGGameModeBase.h (130 lines)
+2. Source/GundamTCG/GameModes/GCGGameModeBase.cpp (190 lines)
+3. Source/GundamTCG/GameState/GCGGameState.h (220 lines)
+4. Source/GundamTCG/GameState/GCGGameState.cpp (210 lines)
+5. Source/GundamTCG/GameModes/GCGGameMode_1v1.h (270 lines)
+6. Source/GundamTCG/GameModes/GCGGameMode_1v1.cpp (680 lines)
+
+#### Impact
+
+- **Game Flow Operational**: Complete turn/phase system ready for testing
+- **Replication Working**: State syncs to all clients via AGCGGameState
+- **Extensible Design**: Blueprint events allow UI integration without C++ changes
+- **Phase 3 Ready**: All stubs marked with TODO comments for zone management integration
+- **Team Battle Ready**: Infrastructure supports both 1v1 and 2v2 modes
+
+#### Next Phase
+
+**Phase 3: Zone Management** (2 weeks estimated)
+- Create UGCGZoneSubsystem for zone operations
+- Create AGCGPlayerState with zone arrays (Hand, Deck, Battle, Resource, etc.)
+- Implement card movement between zones with validation
+- Implement zone limits (6 Units, 15 Resources, etc.)
+- Fill in all Phase 2 stubs (draw cards, place resources, activate cards, etc.)
+
+**Version**: 1.1.0-alpha (Phase 2 complete)
+**Progress**: Phase 2 of 14 complete (14%)
+**Milestone**: Game Mode & State System ✅
+
+---
+
 ## [1.0.0-alpha] - 2025-11-14
 
 ### 🚀 MAJOR MILESTONE: Gundam TCG UE5.6 Foundation Complete
