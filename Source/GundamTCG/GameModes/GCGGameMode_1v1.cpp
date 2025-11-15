@@ -6,6 +6,7 @@
 #include "GundamTCG/PlayerState/GCGPlayerState.h"
 #include "GundamTCG/Subsystems/GCGZoneSubsystem.h"
 #include "GundamTCG/Subsystems/GCGPlayerActionSubsystem.h"
+#include "GundamTCG/Subsystems/GCGCombatSubsystem.h"
 #include "TimerManager.h"
 #include "Engine/World.h"
 
@@ -622,6 +623,146 @@ int32 AGCGGameMode_1v1::RequestDiscardCards(int32 PlayerID, const TArray<int32>&
 		PlayerID, DiscardedCount);
 
 	return DiscardedCount;
+}
+
+bool AGCGGameMode_1v1::RequestDeclareAttack(int32 PlayerID, int32 AttackerInstanceID)
+{
+	AGCGGameState* GCGGameState = GetGCGGameState();
+	if (!GCGGameState)
+	{
+		UE_LOG(LogTemp, Error, TEXT("AGCGGameMode_1v1::RequestDeclareAttack - Game state not found"));
+		return false;
+	}
+
+	// Get attacking player
+	AGCGPlayerState* AttackingPlayer = GetPlayerStateByID(PlayerID);
+	if (!AttackingPlayer)
+	{
+		UE_LOG(LogTemp, Error, TEXT("AGCGGameMode_1v1::RequestDeclareAttack - Player state not found for ID %d"), PlayerID);
+		return false;
+	}
+
+	// Get defending player (opponent)
+	int32 DefendingPlayerID = GetNextPlayerID(PlayerID);
+	AGCGPlayerState* DefendingPlayer = GetPlayerStateByID(DefendingPlayerID);
+	if (!DefendingPlayer)
+	{
+		UE_LOG(LogTemp, Error, TEXT("AGCGGameMode_1v1::RequestDeclareAttack - Defending player not found"));
+		return false;
+	}
+
+	// Get combat subsystem
+	UGCGCombatSubsystem* CombatSubsystem = GetGameInstance()->GetSubsystem<UGCGCombatSubsystem>();
+	if (!CombatSubsystem)
+	{
+		UE_LOG(LogTemp, Error, TEXT("AGCGGameMode_1v1::RequestDeclareAttack - Combat subsystem not found"));
+		return false;
+	}
+
+	// Declare attack
+	FGCGCombatResult Result = CombatSubsystem->DeclareAttack(AttackerInstanceID, AttackingPlayer, DefendingPlayer, GCGGameState);
+
+	if (!Result.bSuccess)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("AGCGGameMode_1v1::RequestDeclareAttack - Player %d failed to declare attack: %s"),
+			PlayerID, *Result.ErrorMessage);
+	}
+	else
+	{
+		// Mark attack in progress
+		GCGGameState->bAttackInProgress = true;
+	}
+
+	return Result.bSuccess;
+}
+
+bool AGCGGameMode_1v1::RequestDeclareBlocker(int32 PlayerID, int32 AttackIndex, int32 BlockerInstanceID)
+{
+	AGCGGameState* GCGGameState = GetGCGGameState();
+	if (!GCGGameState)
+	{
+		UE_LOG(LogTemp, Error, TEXT("AGCGGameMode_1v1::RequestDeclareBlocker - Game state not found"));
+		return false;
+	}
+
+	// Get defending player
+	AGCGPlayerState* DefendingPlayer = GetPlayerStateByID(PlayerID);
+	if (!DefendingPlayer)
+	{
+		UE_LOG(LogTemp, Error, TEXT("AGCGGameMode_1v1::RequestDeclareBlocker - Player state not found for ID %d"), PlayerID);
+		return false;
+	}
+
+	// Get combat subsystem
+	UGCGCombatSubsystem* CombatSubsystem = GetGameInstance()->GetSubsystem<UGCGCombatSubsystem>();
+	if (!CombatSubsystem)
+	{
+		UE_LOG(LogTemp, Error, TEXT("AGCGGameMode_1v1::RequestDeclareBlocker - Combat subsystem not found"));
+		return false;
+	}
+
+	// Declare blocker
+	FGCGCombatResult Result = CombatSubsystem->DeclareBlocker(AttackIndex, BlockerInstanceID, DefendingPlayer, GCGGameState);
+
+	if (!Result.bSuccess)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("AGCGGameMode_1v1::RequestDeclareBlocker - Player %d failed to declare blocker: %s"),
+			PlayerID, *Result.ErrorMessage);
+	}
+
+	return Result.bSuccess;
+}
+
+void AGCGGameMode_1v1::ResolveCombat()
+{
+	AGCGGameState* GCGGameState = GetGCGGameState();
+	if (!GCGGameState)
+	{
+		UE_LOG(LogTemp, Error, TEXT("AGCGGameMode_1v1::ResolveCombat - Game state not found"));
+		return;
+	}
+
+	// Check if there are any attacks to resolve
+	if (GCGGameState->CurrentAttacks.Num() == 0)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("AGCGGameMode_1v1::ResolveCombat - No attacks to resolve"));
+		return;
+	}
+
+	// Get attacking and defending players
+	int32 AttackingPlayerID = GCGGameState->ActivePlayerID;
+	AGCGPlayerState* AttackingPlayer = GetPlayerStateByID(AttackingPlayerID);
+	int32 DefendingPlayerID = GetNextPlayerID(AttackingPlayerID);
+	AGCGPlayerState* DefendingPlayer = GetPlayerStateByID(DefendingPlayerID);
+
+	if (!AttackingPlayer || !DefendingPlayer)
+	{
+		UE_LOG(LogTemp, Error, TEXT("AGCGGameMode_1v1::ResolveCombat - Player states not found"));
+		return;
+	}
+
+	// Get combat subsystem
+	UGCGCombatSubsystem* CombatSubsystem = GetGameInstance()->GetSubsystem<UGCGCombatSubsystem>();
+	if (!CombatSubsystem)
+	{
+		UE_LOG(LogTemp, Error, TEXT("AGCGGameMode_1v1::ResolveCombat - Combat subsystem not found"));
+		return;
+	}
+
+	// Resolve all attacks
+	FGCGCombatResult Result = CombatSubsystem->ResolveAllAttacks(AttackingPlayer, DefendingPlayer, GCGGameState);
+
+	UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::ResolveCombat - Combat resolved (Damage: %d, Shields broken: %d)"),
+		Result.DamageDealt, Result.ShieldsBroken);
+
+	// Clear attacks
+	CombatSubsystem->ClearAttacks(GCGGameState);
+
+	// Check victory conditions
+	if (DefendingPlayer->bHasLost)
+	{
+		EndGame(AttackingPlayerID);
+	}
 }
 
 // ===== SETUP HELPERS =====

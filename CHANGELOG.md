@@ -7,6 +7,153 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.5.0-alpha] - 2025-11-15
+
+### ✅ Phase 6 COMPLETE - Combat System
+
+**Achievement**: Implemented complete combat system with attack declaration, blocker declaration, damage calculation, shield breaking mechanics, and victory conditions.
+
+#### Added
+
+**Combat Subsystem**:
+- **Source/GundamTCG/Subsystems/GCGCombatSubsystem.h/cpp** (820 lines):
+  - **Attack Declaration**: DeclareAttack() - Validates and declares attacks with summoning sickness checks
+  - **Blocker Declaration**: DeclareBlocker() - Validates and declares blockers (requires Blocker keyword)
+  - **Combat Validation**: CanAttack(), CanBlock(), ValidateAttacker(), ValidateBlocker()
+  - **Damage Calculation**: CalculateDamage() - Unit-to-unit damage with AP comparison
+  - **Player Damage**: DealDamageToPlayer() - Shield breaking and base damage
+  - **Shield Breaking**: BreakShields() - Removes shields one at a time, moves to trash
+  - **Combat Resolution**: ResolveAttack(), ResolveAllAttacks() - Execute combat damage and effects
+  - **Combat Structures**:
+    - FGCGAttackDeclaration - Tracks attacker, defender, blocker, resolution state
+    - FGCGCombatResult - Success/failure with error messages and result data
+  - **Victory Conditions**: Check for base destruction when player takes damage with no shields
+  - **Combat Cleanup**: ClearAttacks() - Reset combat state after resolution
+
+**Game Mode Updates**:
+- **Source/GundamTCG/GameModes/GCGGameMode_1v1.h/cpp**:
+  - RequestDeclareAttack() - Server RPC for declaring attacks
+  - RequestDeclareBlocker() - Server RPC for declaring blockers
+  - ResolveCombat() - Server RPC for resolving all attacks
+  - Integration with CombatSubsystem for all combat actions
+  - Victory condition checking after combat damage
+
+#### Features Implemented
+
+- **Attack Declaration System**:
+  - Summoning sickness validation (units can't attack turn deployed)
+  - Already attacked check (once per turn unless keyword allows)
+  - Active state validation (rested units can't attack)
+  - Card type validation (only Units can attack)
+  - Target validation (can't attack own player)
+  - Rest attacker when attack declared
+  - Track attack in GameState->CurrentAttacks array
+
+- **Blocker Declaration System**:
+  - Blocker keyword requirement (only Units with Blocker can block)
+  - Active state validation (rested units can't block)
+  - One blocker per attack limit
+  - Redirect attack to blocker
+  - Rest blocker when declared
+
+- **Damage Calculation**:
+  - **Unit vs Unit**: Both deal damage to each other based on AP
+  - **Unit vs Base**: Deal AP damage to defending player's base
+  - **Unblocked Attack**: Deal damage directly to player
+  - **Blocked Attack**: Attacker fights blocker instead
+  - Damage applied as CurrentDamage on card instances
+  - Unit destroyed when CurrentDamage ≥ HP
+
+- **Shield Breaking Mechanics**:
+  - Player must have shields to absorb damage
+  - One shield broken per damage instance (not per damage amount)
+  - Shield moved from ShieldStack to Trash
+  - If no shields remaining, damage goes to Base
+  - Shield count checked before damage application
+
+- **Base Damage & Victory Conditions**:
+  - Base takes damage when player has no shields
+  - Damage tracked as CurrentDamage on Base card
+  - Player loses when Base CurrentDamage ≥ Base HP
+  - bHasLost flag set on PlayerState
+  - Game ends immediately when player loses
+
+- **Combat Resolution Flow**:
+  1. Attack declared → Attacker rested, attack added to CurrentAttacks
+  2. Blocker declared (optional) → Blocker rested, attack redirected
+  3. ResolveCombat() called → All attacks resolved sequentially
+  4. For each attack:
+     - Calculate damage (attacker AP vs blocker/base)
+     - Apply damage to units
+     - Deal player damage if unblocked
+     - Break shields or damage base
+     - Check for destroyed units
+     - Check for player loss
+  5. Clear attacks → Reset combat state
+
+#### Combat Validation Rules
+
+**Can Attack If**:
+- Card type is Unit
+- Not rested (bIsActive = true)
+- Not deployed this turn (TurnDeployed < CurrentTurn)
+- Has not attacked this turn (bHasAttackedThisTurn = false)
+- Owner is attacking player
+- Target is different player
+
+**Can Block If**:
+- Card has Blocker keyword
+- Card type is Unit
+- Not rested (bIsActive = true)
+- Owner is defending player
+- Attack is not already blocked
+
+#### Integration Points
+
+- **Phase 7 (Keywords)**: FirstStrike, HighManeuver, Suppression, Breach combat keywords
+- **Phase 8 (Effect System)**: "On Attack", "On Block", "On Damage", "On Destroy" triggers
+- **Phase 5 (Player Actions)**: Combat integrated with existing action validation
+
+#### Technical Notes
+
+**Combat State Management**:
+- All attacks tracked in GameState->CurrentAttacks array
+- bAttackInProgress flag prevents multiple simultaneous combat phases
+- Attacks cleared after resolution (no persistent combat state)
+
+**Summoning Sickness**:
+- Units can't attack on turn deployed
+- TurnDeployed compared to CurrentTurn number
+- Link Units bypass this (Phase 9 implementation)
+
+**Shield Stack Order**:
+- Top shield broken first (index 0)
+- Shield moved to Trash zone (public discard pile)
+- Empty shield stack handled gracefully
+
+**Victory Condition Check**:
+- Checked after every player damage instance
+- Checked after every combat resolution
+- Game ends immediately when Base destroyed
+
+**Damage Application**:
+- Unit damage: CurrentDamage += AP (mutual for unit vs unit)
+- Base damage: CurrentDamage += AP (one-way)
+- Units destroyed when CurrentDamage ≥ HP
+- Bases trigger loss when CurrentDamage ≥ HP
+
+#### Files Created
+
+- Source/GundamTCG/Subsystems/GCGCombatSubsystem.h (330 lines)
+- Source/GundamTCG/Subsystems/GCGCombatSubsystem.cpp (490 lines)
+
+#### Files Modified
+
+- Source/GundamTCG/GameModes/GCGGameMode_1v1.h - Added combat request functions
+- Source/GundamTCG/GameModes/GCGGameMode_1v1.cpp - Implemented combat handlers
+
+---
+
 ## [1.4.0-alpha] - 2025-11-15
 
 ### ✅ Phase 5 COMPLETE - Player Actions

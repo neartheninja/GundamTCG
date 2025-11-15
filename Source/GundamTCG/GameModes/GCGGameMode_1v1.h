@@ -181,6 +181,32 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Player Actions")
 	int32 RequestDiscardCards(int32 PlayerID, const TArray<int32>& CardInstanceIDs);
 
+	/**
+	 * Player requests to declare an attack
+	 * @param PlayerID The player making the request
+	 * @param AttackerInstanceID The attacking unit
+	 * @return True if attack was successfully declared
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Player Actions|Combat")
+	bool RequestDeclareAttack(int32 PlayerID, int32 AttackerInstanceID);
+
+	/**
+	 * Player requests to declare a blocker
+	 * @param PlayerID The player making the request
+	 * @param AttackIndex The index of the attack to block
+	 * @param BlockerInstanceID The blocking unit
+	 * @return True if blocker was successfully declared
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Player Actions|Combat")
+	bool RequestDeclareBlocker(int32 PlayerID, int32 AttackIndex, int32 BlockerInstanceID);
+
+	/**
+	 * Resolve all declared attacks
+	 * Called after attack/block phase is complete
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Player Actions|Combat")
+	void ResolveCombat();
+
 	// ===== SETUP HELPERS =====
 
 	/**
