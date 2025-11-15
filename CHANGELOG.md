@@ -7,6 +7,76 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.3.0-alpha] - 2025-11-15
+
+### ✅ Phase 4 COMPLETE - Card Database System
+
+**Achievement**: Implemented centralized card database subsystem with DataTable support, token definitions, and deck validation.
+
+#### Added
+
+**Card Database Subsystem**:
+- **Source/GundamTCG/Subsystems/GCGCardDatabase.h/cpp**:
+  - Game Instance Subsystem for centralized card data management
+  - **Card Data Lookup**: GetCardData(), CardExists(), GetAllCards(), GetCardsByType(), GetCardsByColor()
+  - **Token Definitions**: EX Base (0 AP, 3 HP), EX Resource (0 AP, 0 HP)
+  - **Deck Validation**: ValidateDeck() (50 cards, max 4 copies, max 1 Base), ValidateResourceDeck() (10 cards)
+  - **DataTable Management**: SetCardDataTable(), ReloadCardData(), GetCardCount(), GetDatabaseStats()
+  - Card data cache for O(1) lookups
+
+**Documentation**:
+- **Documentation/CARD_DATABASE_GUIDE.md** (450 lines):
+  - Complete CSV format reference with 10 sample cards
+  - DataTable import instructions
+  - Card text formatting guide
+  - Deck validation rules
+  - API reference and troubleshooting
+
+#### Modified Files
+
+**Game Mode Base**:
+- **Source/GundamTCG/GameModes/GCGGameModeBase.h/cpp**:
+  - Updated to use Card Database subsystem
+  - GetCardData() queries subsystem
+  - BeginPlay() passes DataTable to subsystem
+  - CreateCardInstance() populates all card data from database (CardName, CardType, Colors, Level, Cost, AP, HP, Keywords)
+  - CreateTokenInstance() simplified (stats from token definitions)
+
+#### Features Implemented
+
+- **Centralized Card Data**: Single source of truth via subsystem
+- **Token System**: EX Base and EX Resource hard-coded definitions
+- **Deck Validation**: Comprehensive validation with error messages (4-copy limit, 1 Base, deck size)
+- **Card Instance Creation**: Fully populates card data from database
+- **DataTable Integration**: CSV import, hot-reload support, Blueprint-accessible
+
+#### CSV Format Example
+
+```csv
+CardNumber,CardName,CardText,CardType,Colors,Level,Cost,AP,HP,Keywords,Rarity,SetNumber,CollectorNumber
+GU-001,"RX-78-2 Gundam","[Activate・Main] (1) Rest this card: Draw 1 card.",Unit,"Red",3,3,6,7,"Repair(2)",Rare,SET1,001
+```
+
+#### Integration Points
+
+- **Phase 5**: Card play validation uses database
+- **Phase 6**: Unit stats (AP/HP) from database
+- **Phase 7**: Keywords loaded from database
+- **Phase 8**: Card text parsing from database
+
+#### Files Created
+
+- Source/GundamTCG/Subsystems/GCGCardDatabase.h (200 lines)
+- Source/GundamTCG/Subsystems/GCGCardDatabase.cpp (380 lines)
+- Documentation/CARD_DATABASE_GUIDE.md (450 lines)
+
+#### Files Modified
+
+- Source/GundamTCG/GameModes/GCGGameModeBase.h
+- Source/GundamTCG/GameModes/GCGGameModeBase.cpp
+
+---
+
 ## [1.2.0-alpha] - 2025-11-15
 
 ### ✅ Phase 3 COMPLETE - Zone Management & Player State

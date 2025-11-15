@@ -39,7 +39,8 @@ public:
 
 	/**
 	 * Reference to the main card database DataTable
-	 * This should be set to DT_AllCards in the editor
+	 * This will be passed to the Card Database subsystem on initialization
+	 * Set this to your main card DataTable in the editor (e.g., DT_AllCards)
 	 */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Card Database")
 	UDataTable* CardDatabase;
