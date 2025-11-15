@@ -292,6 +292,12 @@ struct FGCGEffectCost
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Effect")
     int32 Amount;
 
+    // Numerical activation cost (FAQ Q72: ①②③④⑤ symbols)
+    // For activated abilities like "【Activate·Main】①: Draw 1 card"
+    // This is the number of resources that must be rested to activate
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Effect")
+    int32 ActivationCost;
+
     // Additional parameters
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Effect")
     TArray<FString> Parameters;
@@ -300,6 +306,7 @@ struct FGCGEffectCost
     {
         CostType = NAME_None;
         Amount = 0;
+        ActivationCost = 0;
     }
 };
 
@@ -323,6 +330,10 @@ struct FGCGEffectOperation
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Effect")
     EGCGTargetScope TargetScope;
 
+    // Requires target selection (FAQ Q100: can't activate if no valid targets)
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Effect")
+    bool bRequiresTarget;
+
     // Amount (e.g., for "Draw:2", Amount = 2)
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Effect")
     int32 Amount;
@@ -340,6 +351,7 @@ struct FGCGEffectOperation
         OperationType = NAME_None;
         Target = NAME_None;
         TargetScope = EGCGTargetScope::Self;
+        bRequiresTarget = false;
         Amount = 0;
         Duration = EGCGModifierDuration::Instant;
     }

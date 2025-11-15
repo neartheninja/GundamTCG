@@ -370,6 +370,9 @@ bool UGCGCombatSubsystem::DealDamageToUnit(int32 TargetInstanceID, int32 Damage,
 			// Add damage
 			BattleCard.CurrentDamage += Damage;
 
+			// FAQ Q97-99: Track damage source (battle damage vs effect damage)
+			BattleCard.LastDamageSource = EGCGDamageSource::BattleDamage;
+
 			UE_LOG(LogTemp, Log, TEXT("UGCGCombatSubsystem::DealDamageToUnit - Dealt %d damage to %s (Total: %d/%d HP)"),
 				Damage, *BattleCard.CardName.ToString(), BattleCard.CurrentDamage, BattleCard.HP);
 
@@ -421,6 +424,9 @@ bool UGCGCombatSubsystem::DealDamageToPlayer(int32 Damage, AGCGPlayerState* Defe
 	{
 		FGCGCardInstance& Base = DefendingPlayer->BaseSection[0];
 		Base.CurrentDamage += Damage;
+
+		// FAQ Q97-99: Track damage source (battle damage from combat)
+		Base.LastDamageSource = EGCGDamageSource::BattleDamage;
 
 		UE_LOG(LogTemp, Warning, TEXT("UGCGCombatSubsystem::DealDamageToPlayer - Player %d Base took %d damage (Total: %d/%d HP)"),
 			DefendingPlayer->GetPlayerID(), Damage, Base.CurrentDamage, Base.HP);
