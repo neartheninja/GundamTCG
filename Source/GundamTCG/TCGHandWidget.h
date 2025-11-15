@@ -17,7 +17,7 @@ class UDataTable;
  * Supports dynamic card spawning, hover effects, and card selection
  */
 UCLASS(BlueprintType, Blueprintable)
-class ONEPIECETCG_V2_API UTCGHandWidget : public UUserWidget
+class GUNDAMTCG_API UTCGHandWidget : public UUserWidget
 {
     GENERATED_BODY()
 

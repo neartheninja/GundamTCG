@@ -11,7 +11,7 @@
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnHandUpdatedNative);
 
 UCLASS(BlueprintType, Blueprintable)
-class ONEPIECETCG_V2_API ATCGPlayerState : public APlayerState
+class GUNDAMTCG_API ATCGPlayerState : public APlayerState
 {
     GENERATED_BODY()
 

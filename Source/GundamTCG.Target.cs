@@ -3,13 +3,13 @@
 using UnrealBuildTool;
 using System.Collections.Generic;
 
-public class OnePieceTCG_V2Target : TargetRules
+public class GundamTCGTarget : TargetRules
 {
-	public OnePieceTCG_V2Target(TargetInfo Target) : base(Target)
+	public GundamTCGTarget(TargetInfo Target) : base(Target)
 	{
 		Type = TargetType.Game;
 		DefaultBuildSettings = BuildSettingsVersion.V5;
 		IncludeOrderVersion = EngineIncludeOrderVersion.Unreal5_6;
-		ExtraModuleNames.Add("OnePieceTCG_V2");
+		ExtraModuleNames.Add("GundamTCG");
 	}
 }

@@ -2,9 +2,9 @@
 
 using UnrealBuildTool;
 
-public class OnePieceTCG_V2 : ModuleRules
+public class GundamTCG : ModuleRules
 {
-	public OnePieceTCG_V2(ReadOnlyTargetRules Target) : base(Target)
+	public GundamTCG(ReadOnlyTargetRules Target) : base(Target)
 	{
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 	

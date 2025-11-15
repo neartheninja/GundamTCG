@@ -3,13 +3,13 @@
 using UnrealBuildTool;
 using System.Collections.Generic;
 
-public class OnePieceTCG_V2EditorTarget : TargetRules
+public class GundamTCGEditorTarget : TargetRules
 {
-	public OnePieceTCG_V2EditorTarget( TargetInfo Target) : base(Target)
+	public GundamTCGEditorTarget( TargetInfo Target) : base(Target)
 	{
 		Type = TargetType.Editor;
 		DefaultBuildSettings = BuildSettingsVersion.V5;
 		IncludeOrderVersion = EngineIncludeOrderVersion.Unreal5_6;
-		ExtraModuleNames.Add("OnePieceTCG_V2");
+		ExtraModuleNames.Add("GundamTCG");
 	}
 }

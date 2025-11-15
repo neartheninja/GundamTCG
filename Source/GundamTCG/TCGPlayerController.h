@@ -14,7 +14,7 @@ class ATCGPlayerState;
 class UUserWidget;
 
 UCLASS()
-class ONEPIECETCG_V2_API ATCGPlayerController : public APlayerController
+class GUNDAMTCG_API ATCGPlayerController : public APlayerController
 {
     GENERATED_BODY()
 

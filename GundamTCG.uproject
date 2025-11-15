@@ -5,7 +5,7 @@
 	"Description": "",
 	"Modules": [
 		{
-			"Name": "OnePieceTCG_V2",
+			"Name": "GundamTCG",
 			"Type": "Runtime",
 			"LoadingPhase": "Default"
 		}

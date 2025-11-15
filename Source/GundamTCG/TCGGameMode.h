@@ -13,7 +13,7 @@ class ATCGPlayerState;
 class ATCGPlayerController;
 
 UCLASS()
-class ONEPIECETCG_V2_API ATCGGameMode : public AGameMode
+class GUNDAMTCG_API ATCGGameMode : public AGameMode
 {
     GENERATED_BODY()
 

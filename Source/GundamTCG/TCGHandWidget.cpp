@@ -223,8 +223,7 @@ UUserWidget* UTCGHandWidget::SpawnCardWidget(const FCardData& CardData, int32 Ca
             DataToUse.Cost = FoundDefinition.Cost;
             DataToUse.Power = FoundDefinition.Power;
             DataToUse.Counter = FoundDefinition.Counter;
-            DataToUse.CardText = FoundDefinition.CardText;
-            DataToUse.CardArt = FoundDefinition.CardArt;
+            DataToUse.CardText = FoundDefinition.CardText.ToString();
 
             // Set primary color (first in array, or default if empty)
             if (FoundDefinition.Colors.Num() > 0)
