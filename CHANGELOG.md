@@ -7,6 +7,335 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.0.0-alpha] - 2025-11-15
+
+### ✅ Phase 12 FOUNDATION - Testing & Debug Tools
+### ✅ Phase 14 FOUNDATION - AI Opponent System
+### ✅ Phase 10 PREPARATION - UI/UMG C++ Foundation
+
+**Achievement**: Implemented comprehensive debugging system, AI decision-making framework, and complete UI event system to prepare for Blueprint implementation.
+
+#### Added - Phase 12: Debug & Validation Tools
+
+**Debug Subsystem**:
+- **Source/GundamTCG/Subsystems/GCGDebugSubsystem.h/cpp** (1,050 lines):
+  - **Game State Logging**:
+    - LogGameState() - Complete game state dump (turn, phase, players, combat)
+    - LogPlayerState() - Player HP, zones, resources, shields
+    - LogPlayerZones() - Detailed zone contents with card info
+    - LogZone() - Individual zone logging with card details
+    - LogCard() - Complete card instance information
+    - LogCombatState() - Pending attacks and combat status
+  - **Event Logging**:
+    - LogCardPlayed() - Track card plays with context
+    - LogAttackDeclared() - Track attack declarations
+    - LogBlockerDeclared() - Track blocker assignments
+    - LogDamageDealt() - Track damage instances
+    - LogEffectTriggered() - Track effect activations
+    - LogPhaseChange() - Track turn/phase transitions
+    - Event log with max size (1000 events)
+  - **Cheat Commands** (Development Only):
+    - CheatSpawnCard() - Spawn any card in hand
+    - CheatDrawCards() - Draw X cards
+    - CheatAddResources() - Add X resources instantly
+    - CheatSetPlayerHP() - Set player HP directly
+    - CheatHealAllUnits() - Restore all Unit HP
+    - CheatKillEnemyUnits() - Destroy all enemy Units
+    - CheatSkipToPhase() - Jump to specific phase
+    - CheatEndTurn() - Force end turn
+  - **Performance Profiling**:
+    - StartProfiling() - Begin timing section
+    - EndProfiling() - End timing and log duration
+    - LogProfilingSummary() - Show all profiling stats (total, calls, average)
+    - TMap-based profiling data storage
+  - **Debug Categories**:
+    - Granular logging control (All, GameState, PlayerState, Combat, Effects, Keywords, Zones, Cards, Networking, Validation)
+    - SetDebugCategoryEnabled() - Enable/disable specific categories
+    - EnableAllDebugCategories() / DisableAllDebugCategories()
+  - **Helper Functions**:
+    - GetPhaseName() - Human-readable phase names
+    - GetZoneName() - Human-readable zone names
+    - GetCardTypeName() - Human-readable card type names
+    - GetKeywordName() - Human-readable keyword names
+
+**Validation Subsystem** (already created in previous commit):
+- **Source/GundamTCG/Subsystems/GCGValidationSubsystem.h/cpp** (986 lines):
+  - Complete game state validation
+  - Zone limits validation (Battle Area, Resource Area, Shield Stack)
+  - Deck list validation (50 cards, 10 resources, max 4 copies)
+  - Card instance validation (stats, modifiers, zone consistency)
+  - Combat validation (attack/blocker declarations)
+  - Rule enforcement (duplicate IDs, orphaned cards, negative stats)
+  - FGCGValidationResult structure with errors and warnings
+
+#### Added - Phase 14: AI Opponent Foundation
+
+**AI Controller**:
+- **Source/GundamTCG/AI/GCGAIController.h/cpp** (1,500 lines):
+  - **AI Difficulty Levels**:
+    - Random - Makes random legal moves (for testing)
+    - Easy - Basic heuristics, makes obvious mistakes
+    - Medium - Decent heuristics, avoids major mistakes
+    - Hard - Advanced heuristics, near-optimal play
+  - **Decision Framework**:
+    - DecideAction() - Main decision entry point
+    - DecideCardToPlay() - Evaluate cards in hand, choose best play
+    - DecidePlaceResource() - Decide resource placement strategy
+    - DecideAttack() - Evaluate all attackable Units, choose best attacks
+    - DecideBlock() - Evaluate blocker assignments for each attack
+    - DecideDiscard() - Choose which cards to discard (hand limit)
+  - **Game State Evaluation**:
+    - EvaluateGameState() - Calculate overall advantage score
+    - FGCGAIGameEvaluation structure:
+      - BoardControl (0-100) - Unit count advantage
+      - ResourceAdvantage (0-100) - Resource count advantage
+      - CardAdvantage (0-100) - Hand + Deck advantage
+      - TempoAdvantage (0-100) - Total AP on board advantage
+      - ThreatLevel (0-100) - Opponent board strength
+      - AdvantageScore (-100 to +100) - Overall position
+  - **Card Evaluation**:
+    - EvaluateCardPlay() - Score each playable card (stats, keywords, game state)
+    - EvaluateAttack() - Score potential attacks (AP, keywords, blockers, shields)
+    - EvaluateBlock() - Score blocker assignments (favorable trades, survival)
+    - GetCardValue() - Estimate card value (stats, keywords, effects, cost efficiency)
+  - **Helper Functions**:
+    - GetValidActions() - Get all legal actions
+    - GetPlayableCards() - Get cards AI can play from hand (cost check, zone limits)
+    - GetAttackableUnits() - Get Units that can attack (summoning sickness, active state)
+    - GetBlockerUnits() - Get Units that can block (active state)
+    - ShouldPassPriority() - Decide when to pass priority
+  - **Random AI** (Testing):
+    - MakeRandomAction() - Pick random legal action from all possibilities
+    - Used for Random difficulty and testing
+  - **Thinking Delay**:
+    - SetThinkingDelay() - Configure delay for human-like behavior
+    - Configurable min/max delay (default 1-3 seconds)
+    - Makes AI feel more natural
+  - **Debug Support**:
+    - LogAIThinking() - Log AI decision-making process
+    - SetDebugLogging() - Enable/disable AI debug output
+    - FGCGAIAction includes "Reason" field for debugging
+
+**AI Action System**:
+- **FGCGAIAction Structure**:
+  - ActionType (PlayCard, PlaceResource, Attack, Block, ActivateAbility, PassPriority, EndTurn)
+  - CardInstanceID, TargetInstanceID, TargetPlayerID
+  - Priority score (higher = better action)
+  - Reason (debugging string)
+- **Heuristic-Based Decision Making**:
+  - Early game: Always place resources, play Units aggressively
+  - Mid game: Balance resource placement with card plays
+  - Late game: Prioritize high-value cards, avoid placing valuable cards as resources
+  - Combat: Evaluate favorable trades, consider keywords (FirstStrike, HighManeuver, Breach)
+  - Blocking: Evaluate survival, trading value, critical damage prevention
+
+#### Added - Phase 10: UI/UMG C++ Foundation
+
+**UI Event System**:
+- **Source/GundamTCG/UI/GCGUIEvents.h** (630 lines):
+  - **UI Data Structures**:
+    - FGCGUICardData - Simplified card data for UI rendering (includes art, frame)
+    - FGCGUIPlayerStatus - Player status for UI display (HP, hand count, resource count, shields)
+    - FGCGUIAttackData - Attack info for combat UI
+    - FGCGUIDragDropData - Drag-drop validation data
+  - **Event Delegates** (30+ events):
+    - **Game State Events**: OnTurnStart, OnPhaseChange, OnPriorityChange, OnGameEnd
+    - **Player State Events**: OnPlayerHPChanged, OnCardsDrawn, OnHandSizeChanged, OnResourceCountChanged, OnShieldCountChanged
+    - **Card Events**: OnCardPlayed, OnCardMoved, OnCardDestroyed, OnCardStatsChanged, OnCardActiveStateChanged, OnCardsPaired, OnCardsUnpaired
+    - **Combat Events**: OnAttackDeclared, OnBlockerDeclared, OnDamageDealtToCard, OnDamageDealtToPlayer, OnCombatStepChange
+    - **Effect Events**: OnEffectTriggered, OnKeywordApplied, OnModifierApplied
+    - **Input Prompt Events**: OnChoiceRequired, OnCardSelectionRequired, OnTargetSelectionRequired, OnDiscardRequired
+    - **UI Interaction Events**: OnCardHovered, OnCardSelected, OnZoneClicked
+  - **UGCGUIEventManager Class**:
+    - Centralized event manager for Blueprint binding
+    - Broadcast helper functions (BroadcastTurnStart, BroadcastPhaseChange, BroadcastCardPlayed, etc.)
+    - Blueprint-accessible UPROPERTY delegates
+
+**UI Helper Functions**:
+- **Source/GundamTCG/UI/GCGUIHelpers.h/cpp** (1,600 lines):
+  - **Card Data Conversion**:
+    - ConvertCardToUIData() - FGCGCardInstance → FGCGUICardData
+    - ConvertCardsToUIData() - Convert arrays of cards
+    - GetColorDisplayName() - Color enum → display text
+    - GetColorAsLinearColor() - Color enum → FLinearColor (for tinting)
+    - GetKeywordDisplayName() - Keyword enum → display name
+    - GetKeywordDescription() - Keyword → tooltip description
+    - GetCardTypeDisplayName() - Card type → display name
+    - FormatCardStats() - Format "X AP / Y HP" display
+  - **Player Data Conversion**:
+    - ConvertPlayerToUIStatus() - AGCGPlayerState → FGCGUIPlayerStatus
+    - GetAllPlayersUIStatus() - Get all players as UI status
+  - **Phase & Zone Display**:
+    - GetPhaseDisplayName() - Phase enum → display name
+    - GetPhaseDescription() - Phase → tooltip description
+    - GetZoneDisplayName() - Zone enum → display name
+    - GetCombatStepDisplayName() - Combat step → display name
+  - **Combat Data Conversion**:
+    - ConvertAttackToUIData() - FGCGAttackInfo → FGCGUIAttackData
+    - GetAllAttacksUIData() - Get all pending attacks for UI
+  - **Validation & Legality**:
+    - CanPlayCard() - Check if card can be played (resources, zone limits)
+    - CanUnitAttack() - Check if Unit can attack (summoning sickness, active state)
+    - CanUnitBlock() - Check if Unit can block (active state, Blocker keyword)
+    - IsLocalPlayerTurn() - Check if it's local player's turn
+  - **Drag & Drop Validation**:
+    - ValidateDragDrop() - Validate card drag-drop operation
+    - GetValidDropZones() - Get valid zones for card drop
+  - **Formatting Utilities**:
+    - FormatNumber() - Add commas to large numbers
+    - FormatHP() - Format HP display with damage taken
+    - GetHPColor() - Get color based on HP percentage (green/yellow/red)
+  - **Card Filtering & Sorting**:
+    - FilterCardsByType() - Filter by card type
+    - FilterCardsByColor() - Filter by color
+    - FilterCardsByKeyword() - Filter by keyword
+    - SortCardsByCost() - Sort by cost (ascending/descending)
+    - SortCardsByAP() - Sort by AP (ascending/descending)
+  - **Animation & VFX Helpers**:
+    - GetZoneTransitionDuration() - Get animation duration for zone transitions
+    - ShouldPlayEnterAnimation() - Check if enter animation should play
+    - GetZoneScreenPosition() - Get normalized screen position for zones
+
+#### Features Implemented
+
+**Phase 12 - Debug & Validation**:
+- **Comprehensive Debug Logging**: All game events tracked and logged
+- **Debug Categories**: Granular control over logging verbosity
+- **Cheat Commands**: Full suite of testing commands for rapid iteration
+- **Performance Profiling**: Track subsystem performance
+- **Game State Validation**: Comprehensive rule enforcement and error detection
+- **Event Log**: Persistent log with circular buffer (max 1000 events)
+
+**Phase 14 - AI Foundation**:
+- **Multi-Difficulty AI**: Random, Easy, Medium, Hard
+- **Heuristic Evaluation**: Board control, tempo, card advantage, threat assessment
+- **Strategic Decision Making**: Resource placement, card play, attack timing, blocking
+- **Context-Aware**: Adjusts strategy based on game state (early vs late game)
+- **Keyword-Aware**: Evaluates keywords (FirstStrike, Breach, Repair, etc.) in decisions
+- **Trading Evaluation**: Calculates favorable trades in combat
+- **Testing Support**: Random AI for automated testing
+
+**Phase 10 - UI Foundation**:
+- **Complete Event System**: 30+ delegates for all game state changes
+- **UI-Friendly Data**: Simplified structures optimized for rendering
+- **Helper Function Library**: 50+ utility functions for Blueprint widgets
+- **Drag-Drop Framework**: Full validation and zone targeting
+- **Formatting Utilities**: Display-ready text formatting
+- **Card Filtering**: Client-side card filtering and sorting
+- **Animation Support**: Duration and timing helpers for UI animations
+- **Layout Helpers**: Screen position calculations for zones
+
+#### Integration Points
+
+**Phase 12 Integration**:
+- **All Phases**: Debug logging available in all subsystems
+- **Phase 8 (Effects)**: Effect trigger logging, modifier tracking
+- **Phase 6 (Combat)**: Combat state logging, attack/block tracking
+- **Phase 10 (UI)**: Debug overlay, cheat command UI
+- **Phase 13 (Testing)**: Validation for automated testing
+
+**Phase 14 Integration**:
+- **Phase 5 (Player Actions)**: AI uses same action RPCs as human players
+- **Phase 6 (Combat)**: AI evaluates combat using combat subsystem
+- **Phase 8 (Effects)**: AI evaluates effects for card value
+- **Phase 10 (UI)**: AI thinking visualization (optional)
+- **Future**: Machine learning training data from heuristic AI games
+
+**Phase 10 Integration**:
+- **All Phases**: UI events fired from all subsystems
+- **Blueprint Widgets**: All helper functions Blueprint-accessible
+- **Phase 4 (Card Database)**: Card art loading integration
+- **Phase 6 (Combat)**: Combat UI updates via events
+- **Phase 8 (Effects)**: Effect resolution UI
+- **Phase 11 (2v2)**: Team Battle UI support
+
+#### Technical Notes
+
+**Debug Subsystem Design**:
+- Centralized logging for all game events
+- Category-based filtering reduces log spam
+- Event log stored in circular buffer for replay debugging
+- Profiling uses FPlatformTime::Seconds() for high precision
+- Cheat commands only available in Development builds (meta = DevelopmentOnly)
+
+**AI Controller Design**:
+- Heuristic-based, not machine learning (no training required)
+- Deterministic at same difficulty (reproducible for testing)
+- Difficulty implemented via evaluation noise and mistakes
+- All decisions go through same validation as human players (no cheating)
+- Thinking delay makes AI feel more human-like
+- Debug logging shows decision-making process
+
+**UI Event System Design**:
+- Blueprint-friendly delegate pattern
+- Centralized UGCGUIEventManager object
+- Events broadcast from C++ subsystems
+- Blueprint widgets bind to events in EventGraph
+- Unreal's built-in delegate system handles unbinding
+- No circular dependencies (UI never calls game logic directly)
+
+**UI Helper Design**:
+- All functions are static (UBlueprintFunctionLibrary)
+- No state stored in helpers (pure utility functions)
+- Const-correct for read-only operations
+- Blueprint Pure functions where applicable (no side effects)
+- Extensible for additional helpers as needed
+
+#### Files Created
+
+**Phase 12**:
+- Source/GundamTCG/Subsystems/GCGDebugSubsystem.h (357 lines)
+- Source/GundamTCG/Subsystems/GCGDebugSubsystem.cpp (700 lines)
+- Source/GundamTCG/Subsystems/GCGValidationSubsystem.h (286 lines) - *Created in previous commit*
+- Source/GundamTCG/Subsystems/GCGValidationSubsystem.cpp (700 lines) - *Created in previous commit*
+
+**Phase 14**:
+- Source/GundamTCG/AI/GCGAIController.h (376 lines)
+- Source/GundamTCG/AI/GCGAIController.cpp (1,120 lines)
+
+**Phase 10**:
+- Source/GundamTCG/UI/GCGUIEvents.h (630 lines)
+- Source/GundamTCG/UI/GCGUIHelpers.h (370 lines)
+- Source/GundamTCG/UI/GCGUIHelpers.cpp (650 lines)
+
+**Total Added This Version**: 7 files, ~5,200 lines
+
+#### Next Steps
+
+**Phase 10 Completion** (Blueprint Implementation):
+- Create Blueprint widget base classes (WBP_Card, WBP_Zone, WBP_Hand, WBP_BattleArea, WBP_Playmat)
+- Bind Blueprint widgets to UI event delegates
+- Implement drag-drop for card playing
+- Create card hover/zoom system
+- Build turn indicator UI
+- Build phase display UI
+- Build combat visualization UI
+
+**Phase 12 Completion** (Testing):
+- Create automated test scenarios using cheat commands
+- Write integration tests for all subsystems
+- Performance testing with profiling
+- Stress test with validation system
+- Create debug console command bindings
+
+**Phase 14 Completion** (AI Implementation):
+- Integrate AI controller with game mode
+- Test all difficulty levels
+- Balance heuristic weights
+- Add support for more complex decision trees
+- Implement AI for 2v2 Team Battle mode
+- (Optional) Add machine learning support for advanced AI
+
+**Phase 13 (Polish & Content)**:
+- Expand card database beyond test cards
+- Balance testing with AI opponents
+- Visual effects and animations
+- Sound effects
+- Card art integration
+- Documentation updates
+
+---
+
 ## [1.9.0-alpha] - 2025-11-15
 
 ### ✅ Phase 11 COMPLETE - 2v2 Team Battle Mode
