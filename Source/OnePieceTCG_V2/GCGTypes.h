@@ -14,6 +14,8 @@
 
 /**
  * Card Types in Gundam TCG
+ * Comprehensive Rules 2-3: Card Type
+ * 2-3-2: Five card types exist
  */
 UENUM(BlueprintType)
 enum class EGCGCardType : uint8
@@ -27,7 +29,10 @@ enum class EGCGCardType : uint8
 };
 
 /**
- * Card Colors (1-2 colors per card max)
+ * Card Colors
+ * Comprehensive Rules 2-4: Color
+ * 2-4-2-1: There are five card colors: blue, green, red, white, and purple
+ * 2-4-2: Resource cards and tokens have no color
  */
 UENUM(BlueprintType)
 enum class EGCGCardColor : uint8
@@ -36,9 +41,8 @@ enum class EGCGCardColor : uint8
     Blue            UMETA(DisplayName = "Blue"),
     Green           UMETA(DisplayName = "Green"),
     Red             UMETA(DisplayName = "Red"),
-    Black           UMETA(DisplayName = "Black"),
-    Yellow          UMETA(DisplayName = "Yellow"),
-    Colorless       UMETA(DisplayName = "Colorless")
+    Purple          UMETA(DisplayName = "Purple"),
+    Colorless       UMETA(DisplayName = "Colorless")    // For Resources and Tokens
 };
 
 /**
@@ -471,6 +475,10 @@ struct FGCGKeywordInstance
  * Card Data (static definition from DataTable)
  * This is the master card definition - one per unique card
  */
+/**
+ * Card Data (static card definition)
+ * Comprehensive Rules Section 2: Card Information
+ */
 USTRUCT(BlueprintType)
 struct FGCGCardData : public FTableRowBase
 {
@@ -478,41 +486,52 @@ struct FGCGCardData : public FTableRowBase
 
     // ===== IDENTITY =====
 
-    // Unique card identifier (e.g., "GCG-001", "GCG-ST01-012")
+    // 2-1: Card Number - Serial number, max 4 copies in deck
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Identity")
     FName CardNumber;
 
-    // Display name
+    // 2-2: Card Name - Name of the card (2-2-5: Multiple cards with same name can exist on field)
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Identity")
     FText CardName;
 
-    // Card type
+    // 2-3: Card Type - One of: Unit, Pilot, Command, Base, Resource
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Identity")
     EGCGCardType CardType;
 
-    // Colors (1-2 max)
+    // 2-4: Color - 1-2 colors max (blue, green, red, white, purple)
+    // 2-4-2: Resource cards and tokens have no color
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Identity")
     TArray<EGCGCardColor> Colors;
 
-    // Traits (e.g., "Mobile Suit", "Gundam", "Earth Federation")
+    // 2-5: Trait - Group, class, or type (can have multiple)
+    // 2-5-5: Pilot traits are NOT added to paired Unit
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Identity")
     TArray<FName> Traits;
 
     // ===== STATS =====
 
-    // Level requirement (1-10)
+    // 2-9: Lv (Level) - Resources required to play (checks total resources, active or rested)
+    // 2-9-2: All cards except Resources and tokens have Lv
+    // 2-9-3: Token Lv = 0
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
     int32 Level;
 
-    // Resource cost to play
+    // 2-10: Cost - Resources to rest when playing
+    // 2-10-2: All cards except Resources and tokens have cost
+    // 2-10-3: Token cost = 0
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
     int32 Cost;
 
-    // Attack Power
+    // 2-7: AP (Attack Points) - Offensive strength
+    // 2-7-2: Mainly on Unit and Base cards
+    // 2-7-3: Pilot cards have AP modifiers added to paired Unit
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
     int32 AP;
 
-    // Hit Points
+    // 2-8: HP (Hit Points) - Defensive strength
+    // 2-8-2: Card destroyed when HP becomes zero
+    // 2-8-3: Mainly on Unit and Base cards
+    // 2-8-4: Pilot cards have HP modifiers added to paired Unit
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
     int32 HP;
 
@@ -530,7 +549,8 @@ struct FGCGCardData : public FTableRowBase
 
     // ===== LINK REQUIREMENTS (for Units) =====
 
-    // Link requirement (for Link Units)
+    // 2-12: Link Condition - Conditions to link (Pilot names, traits)
+    // 2-12-2: Only Unit cards have link conditions
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Link")
     FGCGLinkRequirement LinkRequirement;
 
@@ -540,15 +560,18 @@ struct FGCGCardData : public FTableRowBase
 
     // ===== PRESENTATION =====
 
-    // Card artwork
+    // 2-13: Card Art - Artwork illustrating card's contents
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Presentation")
     TSoftObjectPtr<UTexture2D> CardArt;
 
-    // Rules text
+    // 2-11: Card Text - Specific effects this card has
+    // 2-11-2: Effects on Unit/Base cards only work in battle/shield area (unless stated)
+    // 2-11-3: Pilot cards have two texts: above name (Pilot) and below name (gained by Unit)
+    // 2-11-4: Text in parentheses is explanatory, has no game effect
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Presentation", meta = (MultiLine = true))
     FText CardText;
 
-    // Flavor text
+    // Flavor text (optional lore text)
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Presentation", meta = (MultiLine = true))
     FText FlavorText;
 
@@ -558,13 +581,16 @@ struct FGCGCardData : public FTableRowBase
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Metadata")
     FName Set;
 
-    // Rarity (for collection system)
+    // 2-16: Rarity - Indicator of card rarity
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Metadata")
     FName Rarity;
 
     // Card number in set
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Metadata")
     int32 CollectorNumber;
+
+    // 2-14: Illustrator's Name (not currently stored in data)
+    // 2-15: Copyright (not currently stored in data)
 
     // Default constructor
     FGCGCardData()
