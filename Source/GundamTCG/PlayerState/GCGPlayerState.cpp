@@ -81,6 +81,48 @@ int32 AGCGPlayerState::GetTotalResourceCount() const
 	return ResourceArea.Num();
 }
 
+int32 AGCGPlayerState::GetEXResourceCount() const
+{
+	int32 EXResourceCount = 0;
+
+	for (const FGCGCardInstance& Resource : ResourceArea)
+	{
+		// Count EX Resource tokens
+		if (Resource.bIsToken && Resource.TokenType == FName("EXResource"))
+		{
+			EXResourceCount++;
+		}
+	}
+
+	return EXResourceCount;
+}
+
+int32 AGCGPlayerState::GetPlayerLv() const
+{
+	// FAQ Q21-Q22: Player's Lv = Active Resources + EX Resources
+	// Active Resources are regular resource cards that are untapped
+	// EX Resources are special tokens that always contribute to Lv (even if rested)
+
+	int32 ActiveRegularResources = 0;
+	int32 EXResources = 0;
+
+	for (const FGCGCardInstance& Resource : ResourceArea)
+	{
+		if (Resource.bIsToken && Resource.TokenType == FName("EXResource"))
+		{
+			// EX Resources always count toward Lv
+			EXResources++;
+		}
+		else if (Resource.bIsActive)
+		{
+			// Regular resources only count if active
+			ActiveRegularResources++;
+		}
+	}
+
+	return ActiveRegularResources + EXResources;
+}
+
 int32 AGCGPlayerState::GetShieldCount() const
 {
 	return ShieldStack.Num();

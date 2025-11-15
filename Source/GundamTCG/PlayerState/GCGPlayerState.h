@@ -184,6 +184,21 @@ public:
 	int32 GetTotalResourceCount() const;
 
 	/**
+	 * Get number of EX Resources (special tokens that contribute to Lv)
+	 * @return Number of EX Resource tokens in Resource Area
+	 */
+	UFUNCTION(BlueprintPure, Category = "Resources")
+	int32 GetEXResourceCount() const;
+
+	/**
+	 * FAQ Q21-Q22: Calculate player's current Lv
+	 * Lv = Active Resources + EX Resources
+	 * @return Player's current Lv value
+	 */
+	UFUNCTION(BlueprintPure, Category = "Resources")
+	int32 GetPlayerLv() const;
+
+	/**
 	 * Get number of shields remaining
 	 * @return Number of cards in Shield Stack
 	 */

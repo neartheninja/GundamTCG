@@ -60,7 +60,12 @@ void AGCGGameMode_1v1::InitializeGame()
 	GCGGameState->TurnNumber = 0;
 	GCGGameState->CurrentPhase = EGCGTurnPhase::NotStarted;
 	GCGGameState->bIsTeamBattle = false;
-	GCGGameState->ActivePlayerID = 0; // Player 1 goes first by default
+
+	// FAQ Q9: Randomize first player (rock-paper-scissors)
+	// For automated implementation, use random selection
+	GCGGameState->ActivePlayerID = FMath::RandRange(0, 1);
+	UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::InitializeGame - Random first player selected: Player %d"),
+		GCGGameState->ActivePlayerID);
 
 	// NOTE: Deck setup must be called externally after deck selection
 	// Once decks are set up, the following initialization sequence applies:
@@ -89,7 +94,32 @@ void AGCGGameMode_1v1::InitializeGame()
 					PlayerState->GetPlayerID(), CardsDrawn);
 			}
 		}
+
+		// FAQ Q10: Mulligan system - Allow each player to redraw starting hand once
+		// TODO: This should be interactive in the actual game
+		// For now, we'll add the infrastructure but skip automatic mulligan
+		// In a full implementation, this would:
+		// 1. Show initial hand to each player
+		// 2. Allow each player to choose whether to mulligan
+		// 3. If yes, shuffle hand back into deck and draw 5 new cards
+		// 4. Only allowed once per player at game start
+
+		UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::InitializeGame - Mulligan phase would occur here (not implemented)"));
 	}
+
+	// Setup EX Base for both players
+	SetupEXBase(0);
+	SetupEXBase(1);
+
+	// Setup shields for both players
+	SetupPlayerShields(0);
+	SetupPlayerShields(1);
+
+	// Setup EX Resource for Player 2 (second player advantage)
+	int32 SecondPlayerID = (GCGGameState->ActivePlayerID == 0) ? 1 : 0;
+	SetupEXResource(SecondPlayerID);
+	UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::InitializeGame - Player %d (second player) receives 1 EX Resource"),
+		SecondPlayerID);
 
 	UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::InitializeGame - Game initialized, ready to start first turn"));
 
@@ -1146,6 +1176,66 @@ void AGCGGameMode_1v1::SetupEXResource(int32 PlayerID)
 
 	UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::SetupEXResource - Created EX Resource token for Player %d (ID: %d)"),
 		PlayerID, EXResourceToken.InstanceID);
+}
+
+bool AGCGGameMode_1v1::PerformMulligan(int32 PlayerID)
+{
+	// Get player state
+	AGCGPlayerState* PlayerState = GetPlayerStateByID(PlayerID);
+	if (!PlayerState)
+	{
+		UE_LOG(LogTemp, Error, TEXT("AGCGGameMode_1v1::PerformMulligan - Player state not found for ID %d"), PlayerID);
+		return false;
+	}
+
+	// Get zone subsystem
+	UGCGZoneSubsystem* ZoneSubsystem = GetGameInstance()->GetSubsystem<UGCGZoneSubsystem>();
+	if (!ZoneSubsystem)
+	{
+		UE_LOG(LogTemp, Error, TEXT("AGCGGameMode_1v1::PerformMulligan - Zone subsystem not found"));
+		return false;
+	}
+
+	// Save hand size
+	int32 HandSize = PlayerState->Hand.Num();
+	if (HandSize == 0)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("AGCGGameMode_1v1::PerformMulligan - Player %d has empty hand"), PlayerID);
+		return false;
+	}
+
+	UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::PerformMulligan - Player %d performing mulligan (returning %d cards)"),
+		PlayerID, HandSize);
+
+	// Move all cards from hand back to deck
+	for (FGCGCardInstance& Card : PlayerState->Hand)
+	{
+		Card.CurrentZone = EGCGCardZone::Deck;
+		PlayerState->Deck.Add(Card);
+	}
+
+	// Clear hand
+	PlayerState->Hand.Empty();
+
+	// Shuffle deck
+	ZoneSubsystem->ShuffleDeck(PlayerState);
+	UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::PerformMulligan - Shuffled deck for Player %d"), PlayerID);
+
+	// Draw new hand (same number of cards)
+	TArray<FGCGCardInstance> NewHand;
+	int32 CardsDrawn = ZoneSubsystem->DrawTopCards(EGCGCardZone::Deck, PlayerState, HandSize, NewHand);
+
+	// Move cards to hand
+	for (FGCGCardInstance& Card : NewHand)
+	{
+		Card.CurrentZone = EGCGCardZone::Hand;
+		PlayerState->Hand.Add(Card);
+	}
+
+	UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::PerformMulligan - Player %d drew new hand (%d cards)"),
+		PlayerID, CardsDrawn);
+
+	return CardsDrawn == HandSize;
 }
 
 // ===== INTERNAL HELPERS =====

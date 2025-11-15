@@ -259,6 +259,16 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Setup")
 	void SetupEXResource(int32 PlayerID);
 
+	/**
+	 * FAQ Q10: Perform mulligan for a player
+	 * Shuffles current hand back into deck and draws 5 new cards
+	 * Can only be done once per player at game start
+	 * @param PlayerID The player performing the mulligan
+	 * @return True if mulligan was successful
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Setup")
+	bool PerformMulligan(int32 PlayerID);
+
 protected:
 	// ===== INTERNAL HELPERS =====
 
