@@ -7,6 +7,150 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.7.0-alpha] - 2025-11-15
+
+### ✅ Phase 8 COMPLETE - Effect System (MVP)
+
+**Achievement**: Implemented data-driven card effect system with timing triggers, condition validation, cost payment, and operation execution framework.
+
+#### Added
+
+**Effect Subsystem**:
+- **Source/GundamTCG/Subsystems/GCGEffectSubsystem.h/cpp** (1000+ lines):
+  - **Effect Execution Framework**: TriggerEffects(), TriggerCardEffects(), ExecuteEffect()
+  - **Condition Validation**: CheckConditions(), CheckCondition() - YourTurn, OpponentTurn, HasActiveResources
+  - **Cost Payment**: CanPayCosts(), PayCosts(), PayCost() - RestResources, RestThisUnit, TrashSelf
+  - **Operation Execution**: ExecuteOperations(), ExecuteOperation()
+  - **Core Operations**:
+    - OP_DrawCards() - Draw X cards
+    - OP_DealDamageToUnit() - Damage target Unit
+    - OP_DealDamageToPlayer() - Damage player (shields/base)
+    - OP_DestroyUnit() - Destroy target Unit
+    - OP_GiveAP() - Grant AP buff with duration
+    - OP_GiveHP() - Grant HP buff with duration
+    - OP_GrantKeyword() - Grant keyword to target
+  - **Modifier Management**:
+    - AddModifier() - Apply stat modifier with duration
+    - RemoveModifiersBySource() - Remove modifiers from specific source
+    - CleanupExpiredModifiers() - Remove expired modifiers
+    - CleanupAllModifiers() - Clean all player modifiers
+  - **Result Structures**:
+    - FGCGEffectResult - Detailed effect execution results
+    - FGCGEffectContext - Effect context (source, target, turn, etc.)
+
+**Turn Flow Integration**:
+- **Source/GundamTCG/GameModes/GCGGameMode_1v1.cpp** (modified):
+  - **StartOfTurn Triggers**: Trigger all StartOfTurn effects in Start Phase → Start Step
+  - **EndOfTurn Triggers**: Trigger all EndOfTurn effects in End Phase → End Step
+  - **Modifier Cleanup**: Clean up UntilEndOfTurn modifiers in End Phase → Cleanup Step
+  - Effect subsystem include added
+
+#### Features Implemented
+
+- **Effect Triggering**:
+  - Trigger all effects with specific timing (OnDeploy, OnAttack, Burst, StartOfTurn, EndOfTurn, etc.)
+  - Trigger effects for specific cards based on timing
+  - Execute individual effects with full validation
+
+- **Condition System**:
+  - YourTurn - Check if source player's turn
+  - OpponentTurn - Check if opponent's turn
+  - HasActiveResources X - Check if player has X active resources
+  - Framework ready for additional conditions (HasLessHP, UnitInPlay, etc.)
+
+- **Cost System**:
+  - RestResources X - Rest X resources to pay cost
+  - RestThisUnit - Rest the source card
+  - TrashSelf - Move source card to Trash
+  - Framework ready for additional costs (DiscardCards, PayLife, etc.)
+
+- **Operation System**:
+  - **Draw** - Draw X cards (handles empty deck loss)
+  - **DealDamageToUnit** - Deal damage to target Unit (tracks destruction)
+  - **DealDamageToPlayer** - Deal damage to player (uses Combat Subsystem for shields/base)
+  - **DestroyUnit** - Move Unit to Trash
+  - **GiveAP/GiveHP** - Grant stat buffs with duration (Instant, UntilEndOfTurn, UntilEndOfBattle, WhileInPlay, Permanent)
+  - **GrantKeyword** - Grant keyword to target card
+  - Framework ready for additional operations (Search, Mill, Bounce, etc.)
+
+- **Modifier Management**:
+  - Add modifiers with duration tracking
+  - Modifiers apply to GetTotalAP() / GetTotalHP() calculations
+  - Automatic cleanup based on duration (end of turn, end of battle)
+  - Source tracking for "while in play" modifiers
+
+- **Target Resolution**:
+  - Self - Source card
+  - SourcePlayer - Source player
+  - OpponentPlayer - Opponent player
+  - TargetUnit - Specified target
+  - Framework ready for AllFriendlyUnits, AllEnemyUnits, RandomUnit, etc.
+
+#### Effect Data Structure
+
+Effects are defined in FGCGEffectData (from GCGTypes.h):
+```cpp
+- Timing: When effect triggers (OnDeploy, OnAttack, Burst, etc.)
+- Conditions: Requirements to activate (YourTurn, HasActiveResources, etc.)
+- Costs: Payment required (RestResources, RestThisUnit, etc.)
+- Operations: What happens (Draw, DealDamage, GiveAP, etc.)
+- bOncePerTurn: Can only activate once per turn
+```
+
+#### Integration Points
+
+- **Phase 6 (Combat)**: Ready for OnAttack, OnBlock, WhenAttacked, OnDestroyed triggers
+- **Phase 7 (Keywords)**: Keyword granting via GrantKeyword operation
+- **Phase 9 (Link Units)**: WhenPaired, WhilePaired effect timings
+- **Phase 10 (UI)**: Effect result display, activation prompts
+
+#### Technical Notes
+
+**Effect Execution Flow**:
+1. Trigger effects with specific timing
+2. For each effect:
+   - Check all conditions (all must be met)
+   - Check if can pay all costs
+   - Pay all costs
+   - Execute all operations
+3. Return combined results
+
+**Modifier Duration Handling**:
+- Instant: Applied once, not stored
+- UntilEndOfTurn: Cleaned up at End Phase → Cleanup Step
+- UntilEndOfBattle: Cleaned up when combat ends
+- WhileInPlay: Removed when source leaves play
+- Permanent: Never expires (rare)
+
+**Data-Driven Design**:
+- Zero hardcoded card effects
+- All card abilities defined in DataTable
+- Effects composed of: Timing + Conditions + Costs + Operations
+- Easy to add new cards without C++ changes
+
+#### MVP Limitations
+
+Phase 8 is an MVP (Minimum Viable Product) implementation:
+- Core framework complete and functional
+- Basic operations implemented (Draw, Damage, Destroy, Buff)
+- Basic conditions implemented (Turn checks, resource checks)
+- Basic costs implemented (Rest resources, rest self, trash self)
+- Additional operations/conditions/costs can be added as needed
+- Combat integration (OnAttack, OnDestroyed) ready but not yet triggered
+- Activated abilities (Activate・Main) framework ready but not yet UI-connected
+
+#### Files Created
+
+- Source/GundamTCG/Subsystems/GCGEffectSubsystem.h (500 lines)
+- Source/GundamTCG/Subsystems/GCGEffectSubsystem.cpp (750 lines)
+
+#### Files Modified
+
+- Source/GundamTCG/GameModes/GCGGameMode_1v1.cpp - Added effect triggers and modifier cleanup
+- Source/GundamTCG/GameModes/GCGGameMode_1v1.cpp - Added effect subsystem include
+
+---
+
 ## [1.6.0-alpha] - 2025-11-15
 
 ### ✅ Phase 7 COMPLETE - Keyword System

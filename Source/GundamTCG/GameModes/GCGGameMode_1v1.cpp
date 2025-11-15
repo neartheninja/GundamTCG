@@ -8,6 +8,7 @@
 #include "GundamTCG/Subsystems/GCGPlayerActionSubsystem.h"
 #include "GundamTCG/Subsystems/GCGCombatSubsystem.h"
 #include "GundamTCG/Subsystems/GCGKeywordSubsystem.h"
+#include "GundamTCG/Subsystems/GCGEffectSubsystem.h"
 #include "TimerManager.h"
 #include "Engine/World.h"
 
@@ -242,7 +243,17 @@ void AGCGGameMode_1v1::ExecuteStartPhase()
 
 	// Start Step: Trigger "at start of turn" effects
 	GCGGameState->CurrentStartPhaseStep = EGCGStartPhaseStep::StartStep;
-	// TODO: Trigger "at start of turn" effects (Phase 8: Effect System)
+
+	// Trigger StartOfTurn effects (Phase 8)
+	UGCGEffectSubsystem* EffectSubsystem = GetGameInstance()->GetSubsystem<UGCGEffectSubsystem>();
+	if (EffectSubsystem)
+	{
+		FGCGEffectContext Context;
+		Context.SourcePlayerID = GCGGameState->ActivePlayerID;
+		Context.TurnNumber = GCGGameState->TurnNumber;
+
+		EffectSubsystem->TriggerEffects(EGCGEffectTiming::StartOfTurn, Context, GCGGameState);
+	}
 
 	// Reset step
 	GCGGameState->CurrentStartPhaseStep = EGCGStartPhaseStep::None;
@@ -418,7 +429,17 @@ void AGCGGameMode_1v1::ExecuteEndPhase()
 
 	// End Step: "At end of turn" effects trigger
 	GCGGameState->CurrentEndPhaseStep = EGCGEndPhaseStep::EndStep;
-	// TODO: Trigger "at end of turn" effects (Phase 8: Effect System)
+
+	// Trigger EndOfTurn effects (Phase 8)
+	UGCGEffectSubsystem* EffectSubsystem = GetGameInstance()->GetSubsystem<UGCGEffectSubsystem>();
+	if (EffectSubsystem)
+	{
+		FGCGEffectContext Context;
+		Context.SourcePlayerID = GCGGameState->ActivePlayerID;
+		Context.TurnNumber = GCGGameState->TurnNumber;
+
+		EffectSubsystem->TriggerEffects(EGCGEffectTiming::EndOfTurn, Context, GCGGameState);
+	}
 
 	// Process Repair keyword for both players (Phase 7)
 	UGCGKeywordSubsystem* KeywordSubsystem = GetGameInstance()->GetSubsystem<UGCGKeywordSubsystem>();
@@ -457,6 +478,23 @@ void AGCGGameMode_1v1::ExecuteEndPhase()
 	// Cleanup Step: "During this turn" effects expire
 	GCGGameState->CurrentEndPhaseStep = EGCGEndPhaseStep::CleanupStep;
 	CleanupTurnEffects();
+
+	// Cleanup modifiers for both players (Phase 8)
+	if (EffectSubsystem)
+	{
+		AGCGPlayerState* ActivePlayer = GetPlayerStateByID(GCGGameState->ActivePlayerID);
+		int32 OpponentID = (GCGGameState->ActivePlayerID == 1) ? 2 : 1;
+		AGCGPlayerState* OpponentPlayer = GetPlayerStateByID(OpponentID);
+
+		if (ActivePlayer)
+		{
+			EffectSubsystem->CleanupAllModifiers(ActivePlayer, GCGGameState, true, false);
+		}
+		if (OpponentPlayer)
+		{
+			EffectSubsystem->CleanupAllModifiers(OpponentPlayer, GCGGameState, true, false);
+		}
+	}
 
 	// Reset step
 	GCGGameState->CurrentEndPhaseStep = EGCGEndPhaseStep::None;
