@@ -5,6 +5,7 @@
 #include "GundamTCG/GameState/GCGGameState.h"
 #include "GundamTCG/PlayerState/GCGPlayerState.h"
 #include "GundamTCG/Subsystems/GCGZoneSubsystem.h"
+#include "GundamTCG/Subsystems/GCGPlayerActionSubsystem.h"
 #include "TimerManager.h"
 #include "Engine/World.h"
 
@@ -520,6 +521,107 @@ void AGCGGameMode_1v1::RequestPassPriority(int32 PlayerID)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("AGCGGameMode_1v1::RequestPassPriority - Cannot pass priority in current phase"));
 	}
+}
+
+bool AGCGGameMode_1v1::RequestPlayCard(int32 PlayerID, int32 CardInstanceID)
+{
+	AGCGGameState* GCGGameState = GetGCGGameState();
+	if (!GCGGameState)
+	{
+		UE_LOG(LogTemp, Error, TEXT("AGCGGameMode_1v1::RequestPlayCard - Game state not found"));
+		return false;
+	}
+
+	// Get player state
+	AGCGPlayerState* PlayerState = GetPlayerStateByID(PlayerID);
+	if (!PlayerState)
+	{
+		UE_LOG(LogTemp, Error, TEXT("AGCGGameMode_1v1::RequestPlayCard - Player state not found for ID %d"), PlayerID);
+		return false;
+	}
+
+	// Get action subsystem
+	UGCGPlayerActionSubsystem* ActionSubsystem = GetGameInstance()->GetSubsystem<UGCGPlayerActionSubsystem>();
+	if (!ActionSubsystem)
+	{
+		UE_LOG(LogTemp, Error, TEXT("AGCGGameMode_1v1::RequestPlayCard - Action subsystem not found"));
+		return false;
+	}
+
+	// Execute play card action
+	FGCGPlayerActionResult Result = ActionSubsystem->PlayCardFromHand(CardInstanceID, PlayerState, GCGGameState);
+
+	if (!Result.bSuccess)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("AGCGGameMode_1v1::RequestPlayCard - Player %d failed to play card: %s"),
+			PlayerID, *Result.ErrorMessage);
+	}
+
+	return Result.bSuccess;
+}
+
+bool AGCGGameMode_1v1::RequestPlaceResource(int32 PlayerID, int32 CardInstanceID, bool bFaceUp)
+{
+	AGCGGameState* GCGGameState = GetGCGGameState();
+	if (!GCGGameState)
+	{
+		UE_LOG(LogTemp, Error, TEXT("AGCGGameMode_1v1::RequestPlaceResource - Game state not found"));
+		return false;
+	}
+
+	// Get player state
+	AGCGPlayerState* PlayerState = GetPlayerStateByID(PlayerID);
+	if (!PlayerState)
+	{
+		UE_LOG(LogTemp, Error, TEXT("AGCGGameMode_1v1::RequestPlaceResource - Player state not found for ID %d"), PlayerID);
+		return false;
+	}
+
+	// Get action subsystem
+	UGCGPlayerActionSubsystem* ActionSubsystem = GetGameInstance()->GetSubsystem<UGCGPlayerActionSubsystem>();
+	if (!ActionSubsystem)
+	{
+		UE_LOG(LogTemp, Error, TEXT("AGCGGameMode_1v1::RequestPlaceResource - Action subsystem not found"));
+		return false;
+	}
+
+	// Execute place resource action
+	FGCGPlayerActionResult Result = ActionSubsystem->PlaceCardAsResource(CardInstanceID, PlayerState, GCGGameState, bFaceUp);
+
+	if (!Result.bSuccess)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("AGCGGameMode_1v1::RequestPlaceResource - Player %d failed to place resource: %s"),
+			PlayerID, *Result.ErrorMessage);
+	}
+
+	return Result.bSuccess;
+}
+
+int32 AGCGGameMode_1v1::RequestDiscardCards(int32 PlayerID, const TArray<int32>& CardInstanceIDs)
+{
+	// Get player state
+	AGCGPlayerState* PlayerState = GetPlayerStateByID(PlayerID);
+	if (!PlayerState)
+	{
+		UE_LOG(LogTemp, Error, TEXT("AGCGGameMode_1v1::RequestDiscardCards - Player state not found for ID %d"), PlayerID);
+		return 0;
+	}
+
+	// Get action subsystem
+	UGCGPlayerActionSubsystem* ActionSubsystem = GetGameInstance()->GetSubsystem<UGCGPlayerActionSubsystem>();
+	if (!ActionSubsystem)
+	{
+		UE_LOG(LogTemp, Error, TEXT("AGCGGameMode_1v1::RequestDiscardCards - Action subsystem not found"));
+		return 0;
+	}
+
+	// Execute discard action
+	int32 DiscardedCount = ActionSubsystem->DiscardToHandLimit(CardInstanceIDs, PlayerState, 10);
+
+	UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::RequestDiscardCards - Player %d discarded %d cards"),
+		PlayerID, DiscardedCount);
+
+	return DiscardedCount;
 }
 
 // ===== SETUP HELPERS =====

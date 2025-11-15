@@ -153,6 +153,34 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Player Actions")
 	void RequestPassPriority(int32 PlayerID);
 
+	/**
+	 * Player requests to play a card from hand
+	 * @param PlayerID The player making the request
+	 * @param CardInstanceID The card to play
+	 * @return True if action was successful
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Player Actions")
+	bool RequestPlayCard(int32 PlayerID, int32 CardInstanceID);
+
+	/**
+	 * Player requests to place a card from hand as a resource
+	 * @param PlayerID The player making the request
+	 * @param CardInstanceID The card to place as resource
+	 * @param bFaceUp Should the resource be face-up?
+	 * @return True if action was successful
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Player Actions")
+	bool RequestPlaceResource(int32 PlayerID, int32 CardInstanceID, bool bFaceUp = false);
+
+	/**
+	 * Player requests to discard cards (for hand limit)
+	 * @param PlayerID The player making the request
+	 * @param CardInstanceIDs The cards to discard
+	 * @return Number of cards successfully discarded
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Player Actions")
+	int32 RequestDiscardCards(int32 PlayerID, const TArray<int32>& CardInstanceIDs);
+
 	// ===== SETUP HELPERS =====
 
 	/**

@@ -7,6 +7,96 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.4.0-alpha] - 2025-11-15
+
+### ✅ Phase 5 COMPLETE - Player Actions
+
+**Achievement**: Implemented complete player action system with validation, cost payment, and card playing from hand.
+
+#### Added
+
+**Player Action Subsystem**:
+- **Source/GundamTCG/Subsystems/GCGPlayerActionSubsystem.h/cpp** (700 lines):
+  - **Action Request System**: FGCGPlayerActionRequest structure for all player actions
+  - **Action Validation**: ValidateAction(), CanPlayCard(), CanPayCost(), ValidatePlayTiming(), ValidatePlayerPriority()
+  - **Action Execution**: ExecuteAction(), ExecutePlayCard(), ExecuteDiscard()
+  - **Play Card from Hand**: PlayCardFromHand() - Units → Battle Area, Bases → Base Section, Commands → Trash
+  - **Cost Payment**: PayCost() - Rest resources to pay card costs, CanPayCost() validation
+  - **Resource Placement**: PlaceCardAsResource() - Manual resource placement from hand (1 per turn limit)
+  - **Discard System**: DiscardCard(), DiscardToHandLimit() - Discard to hand limit (10 cards)
+  - **Action Result System**: FGCGPlayerActionResult with success/failure and error messages
+
+**Game Mode Updates**:
+- **Source/GundamTCG/GameModes/GCGGameMode_1v1.h/cpp**:
+  - RequestPlayCard() - Server RPC for playing cards
+  - RequestPlaceResource() - Server RPC for placing resources manually
+  - RequestDiscardCards() - Server RPC for discarding cards
+  - Integration with PlayerActionSubsystem for all player actions
+
+#### Features Implemented
+
+- **Complete Action System**: All player actions validated and executed through centralized subsystem
+- **Cost Payment**: Resources automatically rested to pay costs (first active resources used)
+- **Play Validation**:
+  - Check play timing (Main Phase only)
+  - Check player priority (active player only)
+  - Check cost (sufficient active resources)
+  - Check zone capacity (6 Units, 15 Resources, 1 Base)
+- **Card Playing**:
+  - Units: Move to Battle Area (rested by default)
+  - Bases: Move to Base Section (replaces EX Base if present)
+  - Commands: Move to Trash (effect resolution stub for Phase 8)
+  - Set TurnDeployed for Units
+- **Resource Management**:
+  - Manual resource placement from hand (1 per turn)
+  - Face-up/face-down option (stub for Phase 7)
+  - Resource limit enforcement (max 15)
+- **Hand Limit**: Discard to 10 cards at end of turn
+
+#### Action Types Supported
+
+- **PlayCard**: Play Unit/Command/Base from hand
+- **PlaceResource**: Place card from hand as resource (manual)
+- **DiscardCard**: Discard card from hand
+- **PassPriority**: Pass priority to advance phase
+
+#### Integration Points
+
+- **Phase 6 (Combat)**: Attack declaration ready
+- **Phase 7 (Keywords)**: Keyword processing on play ready
+- **Phase 8 (Effect System)**: "On Deploy" effects, Command resolution, Priority system
+
+#### Technical Notes
+
+**Action Validation Flow**:
+1. Client requests action via GameMode RPC
+2. GameMode calls PlayerActionSubsystem
+3. Subsystem validates action
+4. If valid, subsystem executes action
+5. Result returned to client
+
+**Cost Payment**:
+- Rests first available active resources
+- Validates sufficient resources before execution
+- Atomic operation (all-or-nothing)
+
+**Zone Transitions**:
+- All card movements go through ZoneSubsystem
+- Zone entry/exit rules applied automatically
+- Units enter Battle Area rested (set by ZoneSubsystem)
+
+#### Files Created
+
+- Source/GundamTCG/Subsystems/GCGPlayerActionSubsystem.h (330 lines)
+- Source/GundamTCG/Subsystems/GCGPlayerActionSubsystem.cpp (370 lines)
+
+#### Files Modified
+
+- Source/GundamTCG/GameModes/GCGGameMode_1v1.h - Added player action request functions
+- Source/GundamTCG/GameModes/GCGGameMode_1v1.cpp - Implemented player action handlers
+
+---
+
 ## [1.3.0-alpha] - 2025-11-15
 
 ### ✅ Phase 4 COMPLETE - Card Database System
