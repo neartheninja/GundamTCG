@@ -120,7 +120,34 @@ public:
 	// ===== GAME FLOW CONTROL =====
 
 	/**
-	 * Check victory conditions for all players
+	 * Comprehensive Rules 1-2-3: Perform Rules Management
+	 * Check defeat conditions and process game state
+	 * Called after any game action that could result in defeat
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Game Flow")
+	void PerformRulesManagement();
+
+	/**
+	 * Comprehensive Rules 1-2-2: Check if a player meets defeat conditions
+	 * 1-2-2-1: Battle damage with no shields
+	 * 1-2-2-2: No cards remaining in deck
+	 * @param PlayerID The player to check
+	 * @return True if player meets defeat conditions
+	 */
+	UFUNCTION(BlueprintPure, Category = "Game Flow")
+	bool CheckDefeatConditions(int32 PlayerID) const;
+
+	/**
+	 * Comprehensive Rules 1-2-4: Process player concession
+	 * Player immediately loses and the game ends
+	 * Concession cannot be forced by card effects (Rule 1-2-5)
+	 * @param PlayerID The player who is conceding
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Game Flow")
+	void ProcessPlayerConcession(int32 PlayerID);
+
+	/**
+	 * Check victory conditions for all players (deprecated - use PerformRulesManagement)
 	 * Called after certain actions (damage dealt, draw attempted)
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Game Flow")

@@ -543,14 +543,102 @@ void AGCGGameMode_1v1::ExecuteEndPhase()
 
 // ===== GAME FLOW CONTROL =====
 
+void AGCGGameMode_1v1::PerformRulesManagement()
+{
+	// Comprehensive Rules 1-2-3: Rules Management
+	// Check defeat conditions for all players and process game state
+
+	UE_LOG(LogTemp, Verbose, TEXT("AGCGGameMode_1v1::PerformRulesManagement - Performing rules management"));
+
+	TArray<AGCGPlayerState*> AllPlayerStates = GetAllPlayerStates();
+	for (AGCGPlayerState* PlayerState : AllPlayerStates)
+	{
+		if (!PlayerState || PlayerState->bHasLost)
+		{
+			continue;
+		}
+
+		int32 PlayerID = PlayerState->GetPlayerID();
+
+		// Check if this player meets defeat conditions
+		if (CheckDefeatConditions(PlayerID))
+		{
+			// Mark player as lost
+			PlayerState->bHasLost = true;
+
+			UE_LOG(LogTemp, Warning, TEXT("AGCGGameMode_1v1::PerformRulesManagement - Player %d meets defeat conditions"),
+				PlayerID);
+
+			// Call Blueprint event
+			PlayerState->OnPlayerLost();
+
+			// End game with opponent as winner
+			int32 OpponentID = GetNextPlayerID(PlayerID);
+			EndGame(OpponentID);
+			return;
+		}
+	}
+}
+
+bool AGCGGameMode_1v1::CheckDefeatConditions(int32 PlayerID) const
+{
+	// Comprehensive Rules 1-2-2: Defeat Conditions
+	AGCGPlayerState* PlayerState = GetPlayerStateByID(PlayerID);
+	if (!PlayerState)
+	{
+		return false;
+	}
+
+	// 1-2-2-1: Battle damage with no shields
+	// (This is checked in combat system when damage is dealt)
+	// The player is defeated if they would receive battle damage while having 0 shields
+
+	// 1-2-2-2: No cards remaining in deck
+	// Player is defeated if they have no cards in their main deck
+	if (PlayerState->GetDeckSize() == 0)
+	{
+		UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::CheckDefeatConditions - Player %d deck is empty"),
+			PlayerID);
+		return true;
+	}
+
+	return false;
+}
+
+void AGCGGameMode_1v1::ProcessPlayerConcession(int32 PlayerID)
+{
+	// Comprehensive Rules 1-2-4: Player Concession
+	// 1-2-5: Concession cannot be forced by card effects
+
+	UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::ProcessPlayerConcession - Player %d has conceded"),
+		PlayerID);
+
+	AGCGPlayerState* PlayerState = GetPlayerStateByID(PlayerID);
+	if (!PlayerState)
+	{
+		UE_LOG(LogTemp, Error, TEXT("AGCGGameMode_1v1::ProcessPlayerConcession - Player state not found"));
+		return;
+	}
+
+	// Mark player as lost
+	PlayerState->bHasLost = true;
+
+	// Call Blueprint event
+	PlayerState->OnPlayerLost();
+
+	// End game immediately with opponent as winner
+	int32 OpponentID = GetNextPlayerID(PlayerID);
+	EndGame(OpponentID);
+
+	UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::ProcessPlayerConcession - Game ended, Player %d wins by concession"),
+		OpponentID);
+}
+
 void AGCGGameMode_1v1::CheckVictoryConditions()
 {
-	// TODO: Implement victory condition checks (Phase 3: Zone Management)
-	// Victory conditions:
-	// 1. Player takes damage when they have no shields → they lose
-	// 2. Player must draw but deck is empty → they lose
-
-	UE_LOG(LogTemp, Verbose, TEXT("AGCGGameMode_1v1::CheckVictoryConditions - Checking victory conditions"));
+	// Deprecated - Use PerformRulesManagement() instead
+	UE_LOG(LogTemp, Warning, TEXT("AGCGGameMode_1v1::CheckVictoryConditions - DEPRECATED: Use PerformRulesManagement() instead"));
+	PerformRulesManagement();
 }
 
 void AGCGGameMode_1v1::EndGame(int32 WinnerPlayerID)

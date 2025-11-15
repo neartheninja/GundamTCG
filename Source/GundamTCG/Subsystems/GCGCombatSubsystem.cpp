@@ -419,7 +419,17 @@ bool UGCGCombatSubsystem::DealDamageToPlayer(int32 Damage, AGCGPlayerState* Defe
 		return false;
 	}
 
-	// No shields - damage goes to Base
+	// Comprehensive Rules 1-2-2-1: Battle damage with no shields = defeat
+	// "When either player receives battle damage from a Unit while they have no cards
+	// in their shield area, that player fulfills the conditions for defeat."
+	UE_LOG(LogTemp, Warning, TEXT("UGCGCombatSubsystem::DealDamageToPlayer - Player %d took battle damage with NO SHIELDS - DEFEAT"),
+		DefendingPlayer->GetPlayerID());
+
+	// Mark player as having met defeat conditions
+	// (Actual loss will be processed during next Rules Management)
+	DefendingPlayer->bHasLost = true;
+
+	// Still apply damage to Base for tracking purposes
 	if (DefendingPlayer->BaseSection.Num() > 0)
 	{
 		FGCGCardInstance& Base = DefendingPlayer->BaseSection[0];
@@ -430,19 +440,9 @@ bool UGCGCombatSubsystem::DealDamageToPlayer(int32 Damage, AGCGPlayerState* Defe
 
 		UE_LOG(LogTemp, Warning, TEXT("UGCGCombatSubsystem::DealDamageToPlayer - Player %d Base took %d damage (Total: %d/%d HP)"),
 			DefendingPlayer->GetPlayerID(), Damage, Base.CurrentDamage, Base.HP);
-
-		// Check if Base is destroyed (player loses)
-		if (Base.CurrentDamage >= Base.HP)
-		{
-			UE_LOG(LogTemp, Warning, TEXT("UGCGCombatSubsystem::DealDamageToPlayer - Player %d Base destroyed - GAME OVER"),
-				DefendingPlayer->GetPlayerID());
-
-			DefendingPlayer->bHasLost = true;
-			return true; // Player lost
-		}
 	}
 
-	return false;
+	return true; // Player lost (will be processed by Rules Management)
 }
 
 // ===== SHIELD SYSTEM =====
