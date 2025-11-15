@@ -33,7 +33,8 @@ Each comprehensive rules section has its own markdown file:
 |---------|--------|---------------------|
 | Section 1 | ✅ Integrated | Rules management in `AGCGGameMode_1v1` |
 | Section 2 | ✅ Integrated | Documentation in `GCGTypes.h`, ⚠️ Breaking change (color enum) |
-| Section 3-13 | ⏳ Pending | Will use modular approach (subsystem + docs only) |
+| Section 3 | 🔄 In Progress | Validation methods added, needs field additions (10/28 rules implemented) |
+| Section 4-13 | ⏳ Pending | Will use modular approach (subsystem + docs only) |
 
 ## Modular Integration Approach
 

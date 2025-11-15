@@ -133,14 +133,75 @@ public:
 	int32 ValidateRule_2_9_2_PlayerLv(const AGCGPlayerState* PlayerState) const;
 
 	// ===== SECTION 3: CARD TYPES =====
-	// To be implemented when Section 3 is provided
 
 	/**
-	 * Rule 3-X: [Placeholder for Section 3 rules]
+	 * Rule 3-2-3: Only Units can attack
+	 * @param Card Card attempting to attack
 	 * @return Validation result
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Comprehensive Rules|Section 3")
-	FGCGRulesValidationResult ValidateSection3_Placeholder() const;
+	FGCGRulesValidationResult ValidateRule_3_2_3_OnlyUnitsAttack(const FGCGCardInstance& Card) const;
+
+	/**
+	 * Rule 3-2-4: Check if Unit has summoning sickness
+	 * @param Unit Unit attempting to attack
+	 * @param bDeployedThisTurn Was this Unit deployed this turn?
+	 * @param bIsLinkUnit Is this a Link Unit?
+	 * @return Validation result
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Comprehensive Rules|Section 3")
+	FGCGRulesValidationResult ValidateRule_3_2_4_SummoningSickness(
+		const FGCGCardInstance& Unit,
+		bool bDeployedThisTurn,
+		bool bIsLinkUnit) const;
+
+	/**
+	 * Rule 3-2-6-4: Check if Pilot satisfies Unit's link condition
+	 * Supports partial name matching with [xyz] syntax
+	 * @param UnitLinkCondition Link condition from Unit card
+	 * @param PilotName Name of Pilot card
+	 * @param PilotTraits Traits of Pilot card
+	 * @return True if link condition satisfied
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Comprehensive Rules|Section 3")
+	bool ValidateRule_3_2_6_4_LinkCondition(
+		const FString& UnitLinkCondition,
+		const FString& PilotName,
+		const TArray<FName>& PilotTraits) const;
+
+	/**
+	 * Rule 3-3-3: Pilot can only exist in battle area if paired with Unit
+	 * @param PlayerState Player attempting to play Pilot
+	 * @param Pilot Pilot card being played
+	 * @return Validation result
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Comprehensive Rules|Section 3")
+	FGCGRulesValidationResult ValidateRule_3_3_3_PilotRequiresUnit(
+		const AGCGPlayerState* PlayerState,
+		const FGCGCardInstance& Pilot) const;
+
+	/**
+	 * Rule 3-3-4: Unit can have at most one Pilot
+	 * @param Unit Unit being paired with
+	 * @param bAlreadyHasPilot Does this Unit already have a Pilot?
+	 * @return Validation result
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Comprehensive Rules|Section 3")
+	FGCGRulesValidationResult ValidateRule_3_3_4_OnePilotPerUnit(
+		const FGCGCardInstance& Unit,
+		bool bAlreadyHasPilot) const;
+
+	/**
+	 * Rule 3-4-3: Commands have no location during effect resolution
+	 * @return Special zone for Commands during resolution (EffectStack)
+	 */
+	UFUNCTION(BlueprintPure, Category = "Comprehensive Rules|Section 3")
+	static EGCGCardZone GetCommandResolutionZone()
+	{
+		// Rule 3-4-3: Commands not in any specific location during resolution
+		// Use EffectStack if it exists, otherwise use a placeholder
+		return EGCGCardZone::Graveyard; // TODO: Add EffectStack zone
+	}
 
 	// ===== SECTION 4: GAME LOCATIONS =====
 	// To be implemented when Section 4 is provided
