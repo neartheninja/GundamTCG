@@ -361,31 +361,32 @@ StartNewTurn();
 
 ## Implementation Summary
 
-### ✅ Fully Implemented (10/17 rules - 59%)
+### ✅ Fully Implemented (15/17 rules - 88%)
 
-1. **6-1-1-5**: Unlimited resource copies (no validation needed)
-2. **6-1-2**: Token preparation (EX Base, EX Resource)
-3. **6-2-1-2**: Shuffle main deck
-4. **6-2-1-3**: Place resource deck
-5. **6-2-1-4**: Determine first player (random)
-6. **6-2-1-5**: Draw starting hand (5 cards)
-7. **6-2-2**: Place shields (6 cards)
-8. **6-2-3**: Place EX Base token
-9. **6-2-4**: Player 2 gets EX Resource
-10. **6-2-5**: Game begins with Player 1
+1. **6-1-1**: Deck size validation (50 main + 10 resource) - DeckValidationSubsystem:107
+2. **6-1-1-1**: Main deck card type validation (Unit, Pilot, Command, Base only) - DeckValidationSubsystem:114
+3. **6-1-1-2**: Color restriction (1-2 colors max) - DeckValidationSubsystem:149
+4. **6-1-1-3**: Copy limit (max 4 per card in main deck) - DeckValidationSubsystem:183
+5. **6-1-1-4**: Resource deck type validation (Resource cards only) - DeckValidationSubsystem:202
+6. **6-1-1-5**: Unlimited resource copies (no validation needed)
+7. **6-1-2**: Token preparation (EX Base, EX Resource)
+8. **6-2-1-1**: Deck validation on presentation - ValidateCompleteDeck():34
+9. **6-2-1-2**: Shuffle main deck
+10. **6-2-1-3**: Place resource deck
+11. **6-2-1-4**: Determine first player (random)
+12. **6-2-1-5**: Draw starting hand (5 cards)
+13. **6-2-1-6**: Mulligan (FIXED: returns hand to bottom of deck) - GameMode_1v1:1470
+14. **6-2-2**: Place shields (6 cards)
+15. **6-2-3**: Place EX Base token
 
 ### ⚠️ Partially Implemented (2/17 rules)
 
-11. **6-1-1**: Deck size validation (assumed, not enforced)
-12. **6-2-1-6**: Mulligan (implemented but wrong order)
+16. **6-2-4**: Player 2 gets EX Resource (implemented for 1v1, Battle Royale extends for 3+ players)
+17. **6-2-5**: Game begins with Player 1 (implemented, needs turn order selection UI)
 
-### ❌ Not Implemented (5/17 rules)
+### ❌ Not Implemented (0/17 rules)
 
-13. **6-1-1-1**: Main deck card type validation
-14. **6-1-1-2**: Color restriction (1-2 colors max)
-15. **6-1-1-3**: Copy limit (max 4 per card)
-16. **6-1-1-4**: Resource deck type validation
-17. **6-2-1-1**: Deck validation on presentation
+All deck construction and game setup rules are now implemented!
 
 ---
 
