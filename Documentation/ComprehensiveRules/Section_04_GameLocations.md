@@ -61,7 +61,7 @@ bool IsFieldZone(EGCGCardZone Zone) const
 }
 ```
 
-**Status**: ❌ Not implemented - needs helper method
+**Status**: ✅ Implemented (ComprehensiveRulesSubsystem.h:215-222)
 
 ---
 
@@ -151,7 +151,7 @@ DOREPLIFETIME_CONDITION(AGCGPlayerState, Deck, COND_OwnerOnly);      // Private
 DOREPLIFETIME_CONDITION(AGCGPlayerState, ShieldStack, COND_OwnerOnly); // Private
 ```
 
-**Status**: ⚠️ Needs verification of replication conditions
+**Status**: ✅ Implemented (ComprehensiveRulesSubsystem.h:230-251, replication enforced in AGCGPlayerState)
 
 ---
 
@@ -368,7 +368,7 @@ FGCGRulesValidationResult ValidateRule_4_4_2_ResourceAreaLimit(
 }
 ```
 
-**Status**: ❌ Not implemented - needs validation method
+**Status**: ✅ Implemented (ComprehensiveRulesSubsystem:352-381) - Validates max 15 resources and max 5 EX Resources
 
 ---
 
@@ -444,7 +444,7 @@ FGCGRulesValidationResult ValidateRule_4_5_4_BattleAreaLimit(
 }
 ```
 
-**Status**: ❌ Not implemented - needs validation method
+**Status**: ✅ Implemented (ComprehensiveRulesSubsystem:396-432)
 
 ---
 
@@ -511,7 +511,7 @@ FGCGRulesValidationResult ValidateRule_4_6_3_BaseSectionLimit(
 DOREPLIFETIME(AGCGPlayerState, BaseSection); // Public
 ```
 
-**Status**: ⚠️ Needs validation method (replication exists)
+**Status**: ✅ Implemented (ComprehensiveRulesSubsystem:434-453, also enforced in GameMode:728-784)
 
 ---
 
@@ -653,7 +653,7 @@ FGCGRulesValidationResult ValidateRule_4_8_4_HandSizeLimit(
 }
 ```
 
-**Status**: ❌ Not implemented - needs end phase enforcement
+**Status**: ✅ Implemented (ComprehensiveRulesSubsystem:455-489, validation enforced during end phase)
 
 ---
 
@@ -684,10 +684,10 @@ DOREPLIFETIME(AGCGPlayerState, Graveyard); // Public
 
 ### Locations (4-1)
 - [x] **4-1-1**: Eight locations defined (enum)
-- [ ] **4-1-1-2**: Field helper method (Resource + Battle + Shield)
+- [x] **4-1-1-2**: Field helper method (Resource + Battle + Shield)
 - [ ] **4-1-2**: Active effects have no location (EffectStack)
 - [x] **4-1-3**: Card counts are public (replication)
-- [ ] **4-1-4**: Public vs private validation method
+- [x] **4-1-4**: Public vs private validation method
 - [ ] **4-1-5**: Clear effects when moving zones
 - [x] **4-1-6**: Owner determines simultaneous placement order
 - [x] **4-1-7**: Private placement order hidden (replication)
@@ -705,21 +705,21 @@ DOREPLIFETIME(AGCGPlayerState, Graveyard); // Public
 
 ### Resource Area (4-4)
 - [x] **4-4-1**: Resource placement
-- [ ] **4-4-2**: Max 15 resources validation
-- [ ] **4-4-2-1**: Max 5 EX Resources validation
+- [x] **4-4-2**: Max 15 resources validation
+- [x] **4-4-2-1**: Max 5 EX Resources validation
 - [x] **4-4-3**: Resource area is public
 
 ### Battle Area (4-5)
 - [x] **4-5-1**: Battle area purpose
 - [x] **4-5-2**: Units face up
 - [ ] **4-5-3**: Pilots beneath Units (Link system)
-- [ ] **4-5-4**: Max 6 Units validation
+- [x] **4-5-4**: Max 6 Units validation
 - [x] **4-5-5**: Battle area is public
 
 ### Shield Area (4-6)
 - [x] **4-6-1**: Shield area purpose
 - [x] **4-6-2**: Two sections (Base + Shield)
-- [ ] **4-6-3**: Max 1 Base validation
+- [x] **4-6-3**: Max 1 Base validation
 - [x] **4-6-3-1**: Base section is public
 - [x] **4-6-4**: Shield placement face down
 - [x] **4-6-4-1**: Shield privacy (COND_OwnerOnly)
@@ -733,37 +733,29 @@ DOREPLIFETIME(AGCGPlayerState, Graveyard); // Public
 - [x] **4-8-1**: Hand purpose
 - [x] **4-8-2**: Hand privacy (owner can view/reorder)
 - [x] **4-8-3**: Cannot view opponent's hand
-- [ ] **4-8-4**: Max 10 hand size during end phase
+- [x] **4-8-4**: Max 10 hand size during end phase
 
 ### Trash (4-9)
 - [x] **4-9-1**: Trash purpose
 - [x] **4-9-2**: Trash is public
 
-**Summary**: 28/37 rules implemented (76%)
+**Summary**: 35/37 rules implemented (95%)
 
-Most zone structure is already correct. Needs:
-- Capacity validation methods (resources, units, base, hand)
-- Effect clearing when moving zones
-- Helper methods for public/private/field checks
+Most zone structure is already correct. Remaining work:
+- Rule 4-1-2: Active effects location handling (EffectStack zone)
+- Rule 4-1-5: Clear temporary effects when moving zones
+- Rule 4-5-3: Visual representation of Pilots beneath Units (UI)
 
 ---
 
 ## Next Steps for Full Integration
 
-### Phase 1: Validation Methods (3-4 days)
-1. Add `ValidateRule_4_4_2_ResourceAreaLimit()` (15 resources, 5 EX)
-2. Add `ValidateRule_4_5_4_BattleAreaLimit()` (6 Units)
-3. Add `ValidateRule_4_6_3_BaseSectionLimit()` (1 Base)
-4. Add `ValidateRule_4_8_4_HandSizeLimit()` (10 cards)
-5. Add `ValidateRule_4_1_4_IsPublicZone()` (public/private helper)
-6. Add `IsFieldZone()` helper (Rule 4-1-1-2)
+### Remaining Implementation (1-2 days)
+1. **Rule 4-1-2**: Add `EffectStack` zone for active effects without location
+2. **Rule 4-1-5**: Implement effect clearing in `MoveCard()` (clear temporary modifiers when cards change zones)
+3. **Rule 4-5-3**: Add visual representation of Pilots beneath Units in Battle Area UI
 
-### Phase 2: Zone Movement Logic (1 week)
-1. Implement effect clearing in `MoveCard()` (Rule 4-1-5)
-2. Add end phase hand size enforcement (Rule 4-8-4)
-3. Test zone transitions preserve/clear correct data
-
-**Total Estimate**: 1-2 weeks for full Section 4 integration
+**Total Estimate**: 1-2 days for full Section 4 integration (95% → 100%)
 
 ---
 
