@@ -263,14 +263,26 @@ void DamageShield(FGCGCardInstance& Shield, int32 Damage)
 
 **Implementation**:
 ```cpp
-void RecoverHP(FGCGCardInstance& Card, int32 RecoveryAmount)
+// In UGCGComprehensiveRulesSubsystem::RecoverHP() (line 492)
+int32 RecoverHP(FGCGCardInstance& Card, int32 RecoveryAmount) const
 {
+    // Rule 5-6-3: Undamaged cards cannot recover HP
+    if (Card.CurrentDamage == 0)
+    {
+        return 0;
+    }
+
     // Rule 5-6-1: Remove damage counters
-    Card.CurrentDamage = FMath::Max(0, Card.CurrentDamage - RecoveryAmount);
+    int32 ActualRecovery = FMath::Min(RecoveryAmount, Card.CurrentDamage);
+
+    // Rule 5-6-2: Cannot exceed max HP
+    Card.CurrentDamage -= ActualRecovery;
+
+    return ActualRecovery;
 }
 ```
 
-**Status**: ❌ Not implemented
+**Status**: ✅ Implemented (ComprehensiveRulesSubsystem:492)
 
 ---
 
@@ -279,21 +291,15 @@ void RecoverHP(FGCGCardInstance& Card, int32 RecoveryAmount)
 
 **Implementation**:
 ```cpp
-void RecoverHP(FGCGCardInstance& Card, int32 RecoveryAmount)
-{
-    // Rule 5-6-2: Can't recover more than current damage
-    if (RecoveryAmount >= Card.CurrentDamage)
-    {
-        Card.CurrentDamage = 0; // Remove all counters
-    }
-    else
-    {
-        Card.CurrentDamage -= RecoveryAmount;
-    }
-}
+// In UGCGComprehensiveRulesSubsystem::RecoverHP() (line 502)
+// Rule 5-6-1: Remove damage counters
+int32 ActualRecovery = FMath::Min(RecoveryAmount, Card.CurrentDamage);
+
+// Rule 5-6-2: Cannot exceed max HP (remove all counters at most)
+Card.CurrentDamage -= ActualRecovery;
 ```
 
-**Status**: ❌ Not implemented
+**Status**: ✅ Implemented (ComprehensiveRulesSubsystem:502)
 
 ---
 
@@ -302,19 +308,16 @@ void RecoverHP(FGCGCardInstance& Card, int32 RecoveryAmount)
 
 **Implementation**:
 ```cpp
-void RecoverHP(FGCGCardInstance& Card, int32 RecoveryAmount)
+// In UGCGComprehensiveRulesSubsystem::RecoverHP() (line 494)
+// Rule 5-6-3: Undamaged cards cannot recover HP
+if (Card.CurrentDamage == 0)
 {
-    // Rule 5-6-3: Can't heal undamaged cards
-    if (Card.CurrentDamage == 0)
-    {
-        return; // No effect
-    }
-
-    Card.CurrentDamage = FMath::Max(0, Card.CurrentDamage - RecoveryAmount);
+    UE_LOG(LogTemp, Verbose, TEXT("RecoverHP - Card has no damage, cannot recover"));
+    return 0;
 }
 ```
 
-**Status**: ❌ Not implemented
+**Status**: ✅ Implemented (ComprehensiveRulesSubsystem:494)
 
 ---
 
@@ -417,7 +420,7 @@ void DestroyShield(FGCGCardInstance& Shield, AGCGPlayerState* Owner)
 }
 ```
 
-**Status**: ❌ Not implemented - critical feature!
+**Status**: ⚠️ Partially implemented (detection works, UI prompt pending) - CombatSubsystem:540-562
 
 ---
 
@@ -428,22 +431,30 @@ void DestroyShield(FGCGCardInstance& Shield, AGCGPlayerState* Owner)
 
 **Implementation**:
 ```cpp
-void EnforceBattleAreaLimit(AGCGPlayerState* PlayerState)
+// In AGCGGameMode_1v1::EnforceBattleAreaLimit() (line 670)
+void AGCGGameMode_1v1::EnforceBattleAreaLimit(AGCGPlayerState* PlayerState)
 {
-    // Rule 4-5-4: Max 6 Units
+    // Rule 11-4-2: If over limit, player chooses Unit to trash
     while (PlayerState->BattleArea.Num() > 6)
     {
-        // Prompt player to choose one
-        FGCGCardInstance RemovedCard = PromptChooseCardToRemove(PlayerState);
+        int32 RemovedUnitID = RequestChooseUnitToRemove(PlayerID);
 
-        // Rule 5-10-4: Move to trash, but NOT destroyed (no triggers)
-        MoveCard(RemovedCard, EGCGCardZone::BattleArea, EGCGCardZone::Graveyard, PlayerState);
-        // bWasDestroyed = false (don't trigger "when destroyed" effects)
+        if (RemovedUnit)
+        {
+            // Rule 5-10-4 & 11-4-2-1: NOT considered destroyed (no "On Destroyed" effects)
+            RemovedUnit->bWasDestroyed = false;
+            RemovedUnit->CurrentZone = EGCGCardZone::Trash;
+
+            PlayerState->Trash.Add(*RemovedUnit);
+            PlayerState->BattleArea.RemoveAll(...);
+        }
     }
 }
+
+// Same for EnforceBaseSectionLimit() (line 728)
 ```
 
-**Status**: ❌ Not implemented
+**Status**: ✅ Implemented (GameMode:670-726, GameMode:728-784) - Uses bWasDestroyed flag
 
 ---
 
@@ -691,34 +702,31 @@ The token momentarily moves to that location before being removed, so trigger co
 
 **Implementation**:
 ```cpp
-void MoveCard(FGCGCardInstance& Card, EGCGCardZone FromZone, EGCGCardZone ToZone, AGCGPlayerState* PlayerState)
+// In UGCGZoneSubsystem::MoveCard() (line 44)
+// Rule 5-17-2-5: Tokens leaving field zones are removed from the game
+EGCGCardZone OriginalToZone = ToZone;
+if (Card.bIsToken)
 {
-    // Normal movement
-    Card.CurrentZone = ToZone;
-    AddCardToZone(Card, ToZone, PlayerState);
+    // Check if leaving a field zone
+    bool bLeavingFieldZone = (FromZone == EGCGCardZone::BattleArea ||
+                              FromZone == EGCGCardZone::ResourceArea ||
+                              FromZone == EGCGCardZone::ShieldStack ||
+                              FromZone == EGCGCardZone::BaseSection);
 
-    // Rule 5-17-2-5: Tokens removed from game when leaving field
-    if (Card.bIsToken)
+    if (bLeavingFieldZone)
     {
-        bool bIsFieldZone = (ToZone == EGCGCardZone::BattleArea ||
-                             ToZone == EGCGCardZone::ResourceArea ||
-                             ToZone == EGCGCardZone::ShieldStack ||
-                             ToZone == EGCGCardZone::BaseSection);
-
-        if (!bIsFieldZone)
+        UGCGComprehensiveRulesSubsystem* RulesSubsystem = GetGameInstance()->GetSubsystem<UGCGComprehensiveRulesSubsystem>();
+        if (RulesSubsystem && RulesSubsystem->ShouldRemoveToken(Card, ToZone))
         {
-            // Rule 5-17-2-5-1: Triggers occur before removal
-            ProcessZoneTriggers(Card, ToZone); // "when destroyed", "when returned", etc.
-
-            // Remove from game
-            RemoveCardFromZone(Card, ToZone, PlayerState);
-            // Card ceases to exist
+            ToZone = EGCGCardZone::Removal;
+            UE_LOG(LogTemp, Log, TEXT("Token %s redirected to Removal zone (Rule 5-17-2-5)"),
+                *Card.CardName.ToString());
         }
     }
 }
 ```
 
-**Status**: ❌ Not implemented - critical!
+**Status**: ✅ Implemented (ZoneSubsystem:44-64) - Tokens auto-removed when leaving field
 
 ---
 
@@ -734,30 +742,42 @@ void MoveCard(FGCGCardInstance& Card, EGCGCardZone FromZone, EGCGCardZone ToZone
 
 **Implementation**:
 ```cpp
-// In game setup
-void SetupEXBase(AGCGPlayerState* PlayerState)
+// Token data in UGCGCardDatabase::CreateEXBaseTokenData() (line 305)
+FGCGCardData UGCGCardDatabase::CreateEXBaseTokenData() const
 {
-    // Rule 5-17-3-1: Create EX Base token
+    FGCGCardData EXBase;
+    EXBase.CardNumber = FName("EXBase");
+    EXBase.CardName = FText::FromString(TEXT("EX Base"));
+    EXBase.CardType = EGCGCardType::Base;
+    EXBase.Colors.Empty(); // Colorless
+    EXBase.Level = 0;
+    EXBase.Cost = 0;
+    EXBase.AP = 0; // Rule 5-17-3-1-1: 0 AP
+    EXBase.HP = 3; // Rule 5-17-3-1-1: 3 HP
+    return EXBase;
+}
+
+// Instance creation in UGCGComprehensiveRulesSubsystem::CreateEXBaseToken() (line 592)
+FGCGCardInstance CreateEXBaseToken(int32 OwnerPlayerID) const
+{
     FGCGCardInstance EXBase;
     EXBase.bIsToken = true;
     EXBase.TokenType = FName("EXBase");
     EXBase.CardNumber = FName("TOKEN_EXBase");
-    EXBase.OwnerPlayerID = PlayerState->GetPlayerID();
+    EXBase.OwnerPlayerID = OwnerPlayerID;
     EXBase.CurrentZone = EGCGCardZone::BaseSection;
-    EXBase.bIsActive = true;
-    EXBase.CurrentDamage = 0;
+    return EXBase;
+}
 
-    // Rule 5-17-3-1-1: 0 AP, 3 HP
-    // (AP/HP stored in token data, not instance)
-
-    PlayerState->BaseSection.Add(EXBase);
-
-    UE_LOG(LogTemp, Log, TEXT("SetupEXBase - Player %d: EX Base (0 AP / 3 HP) placed"),
-        PlayerState->GetPlayerID());
+// Game setup in AGCGGameMode_1v1::SetupEXBase() (line 1391)
+void AGCGGameMode_1v1::SetupEXBase(int32 PlayerID)
+{
+    FGCGCardInstance EXBaseToken = RulesSubsystem->CreateEXBaseToken(PlayerID);
+    PlayerState->BaseSection.Add(EXBaseToken);
 }
 ```
 
-**Status**: ❌ Not implemented - needs token card data system!
+**Status**: ✅ Implemented (CardDatabase:305, ComprehensiveRulesSubsystem:592, GameMode:1391)
 
 ---
 
@@ -833,8 +853,10 @@ void RemoveCounters(FGCGCardInstance& Card, int32 Count)
 
 **Implementation**:
 ```cpp
-// Effect parsing
-bool MatchesTraitCondition(const FString& Condition, const TArray<FName>& CardTraits)
+// In UGCGComprehensiveRulesSubsystem::MatchesTraitCondition() (line 614)
+bool UGCGComprehensiveRulesSubsystem::MatchesTraitCondition(
+    const FString& Condition,
+    const TArray<FName>& CardTraits) const
 {
     // Rule 5-19-1: "/" means "or"
     if (Condition.Contains(TEXT("/")))
@@ -854,12 +876,12 @@ bool MatchesTraitCondition(const FString& Condition, const TArray<FName>& CardTr
         return false;
     }
 
-    // Single trait
+    // Single trait match
     return CardTraits.Contains(FName(*Condition));
 }
 ```
 
-**Status**: ❌ Not implemented - effect parsing needed
+**Status**: ✅ Implemented (ComprehensiveRulesSubsystem:614-645)
 
 ---
 
@@ -950,18 +972,18 @@ void ResolveEffect_Then(const FGCGEffect& Effect)
 - [x] **5-5-6**: No excess damage to shields
 
 ### HP Recovery (5-6)
-- [ ] **5-6-1**: Remove damage counters
-- [ ] **5-6-2**: Cannot exceed max HP
-- [ ] **5-6-3**: Undamaged cards cannot recover
+- [x] **5-6-1**: Remove damage counters ✅ IMPLEMENTED
+- [x] **5-6-2**: Cannot exceed max HP ✅ IMPLEMENTED
+- [x] **5-6-3**: Undamaged cards cannot recover ✅ IMPLEMENTED
 
 ### Actions (5-7 - 5-12)
 - [x] **5-7-1**: Play cards
 - [x] **5-8-1**: Deploy
-- [ ] **5-9-1**: Pair (partial)
+- [ ] **5-9-1**: Pair (partial - needs UI)
 - [x] **5-10-1**: Destroy definition
 - [x] **5-10-2**: Destroyed to trash
-- [ ] **5-10-3**: Shield Burst trigger (CRITICAL!)
-- [ ] **5-10-4**: Limit exceeding not destruction
+- [x] **5-10-3**: Shield Burst trigger ⚠️ DETECTION IMPLEMENTED, UI PENDING
+- [x] **5-10-4**: Limit exceeding not destruction ✅ IMPLEMENTED
 - [x] **5-11-1**: Discard
 - [x] **5-12-1**: Remove definition
 - [x] **5-12-2**: Removed not destroyed
@@ -978,11 +1000,11 @@ void ResolveEffect_Then(const FGCGEffect& Effect)
 - [x] **5-17-1**: Token definition (field exists)
 - [x] **5-17-2-1**: Tokens use same rules
 - [x] **5-17-2-2**: Token Units can pair
-- [ ] **5-17-2-3**: Tokens colorless
-- [ ] **5-17-2-4**: Token Lv/cost = 0
-- [ ] **5-17-2-5**: Tokens removed when leaving field (CRITICAL!)
-- [ ] **5-17-3-1**: EX Base (0 AP / 3 HP) (CRITICAL!)
-- [x] **5-17-3-2**: EX Resource (implemented)
+- [x] **5-17-2-3**: Tokens colorless ✅ IMPLEMENTED
+- [x] **5-17-2-4**: Token Lv/cost = 0 ✅ IMPLEMENTED
+- [x] **5-17-2-5**: Tokens removed when leaving field ✅ IMPLEMENTED
+- [x] **5-17-3-1**: EX Base (0 AP / 3 HP) ✅ IMPLEMENTED
+- [x] **5-17-3-2**: EX Resource ✅ IMPLEMENTED
 
 ### Counters (5-18)
 - [x] **5-18-1**: Counter definition
@@ -990,30 +1012,32 @@ void ResolveEffect_Then(const FGCGEffect& Effect)
 - [x] **5-18-3**: Removing counters
 
 ### Effect Parsing (5-19 - 5-20)
-- [ ] **5-19-1**: "/" means "or"
-- [ ] **5-20-1**: "If you do" conditional
-- [ ] **5-20-2**: "Then" non-conditional
+- [x] **5-19-1**: "/" means "or" ✅ IMPLEMENTED
+- [ ] **5-20-1**: "If you do" conditional (needs effect system)
+- [ ] **5-20-2**: "Then" non-conditional (needs effect system)
 
-**Summary**: 24/42 rules implemented (57%)
+**Summary**: 34/42 rules fully implemented (81%), 2 partial (5%)
 
 ---
 
-## Critical Features to Implement
+## Remaining Features to Implement
 
-### Priority 1 (Game-Breaking if Missing)
-1. **EX Base token** (5-17-3-1) - Every game starts with this!
-2. **Shield Burst** (5-10-3) - Core defensive mechanic
-3. **Token removal on zone change** (5-17-2-5) - Prevents token abuse
+### UI-Dependent Features (High Priority)
+1. **Shield Burst activation prompt** (5-10-3) - Detection works, needs UI for player choice
+2. **Pilot pairing UI** (5-9-1) - Pairing logic works, needs UI for target selection
 
-### Priority 2 (Core Mechanics)
-4. **HP Recovery** (5-6) - Healing effects
-5. **Damage source tracking** (5-5-3, 5-5-4) - Battle vs effect damage
-6. **Active/Rested placement** (5-4-2) - Cards enter zones active
+### Effect System Features (Medium Priority)
+3. **Damage source tracking** (5-5-3, 5-5-4) - Distinguish battle vs effect damage
+4. **"If you do" / "Then"** (5-20-1, 5-20-2) - Conditional effect resolution
+5. **Gain effects** (5-16-1) - Temporary keywords/effects
+6. **Active/Rested placement** (5-4-2) - Explicit active/rested state on zone entry
 
-### Priority 3 (Effect System)
-7. **Gain effects** (5-16-1) - Temporary keywords/effects
-8. **"If you do" / "Then"** (5-20) - Effect resolution
-9. **"/" parsing** (5-19-1) - Trait matching
+### Already Implemented ✅
+- ✅ EX Base token (5-17-3-1) - CardDatabase:305, GameMode:1391
+- ✅ Token removal on zone change (5-17-2-5) - ZoneSubsystem:44
+- ✅ HP Recovery (5-6) - ComprehensiveRulesSubsystem:492
+- ✅ "/" trait parsing (5-19-1) - ComprehensiveRulesSubsystem:614
+- ✅ Limit exceeding not destruction (5-10-4) - Uses bWasDestroyed flag
 
 ---
 
