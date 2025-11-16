@@ -33,8 +33,8 @@ Each comprehensive rules section has its own markdown file:
 |---------|--------|---------------------|
 | Section 1 | ✅ Integrated | Rules management in `AGCGGameMode_1v1` |
 | Section 2 | ✅ Integrated | Documentation in `GCGTypes.h`, ⚠️ Breaking change (color enum) |
-| Section 3 | ✅ Mostly Implemented | Pilot system complete, Commands pending (20/28 rules - 71%) |
-| Section 4 | ✅ Mostly Implemented | Zone structure and validation methods complete (35/37 rules - 95%), effect clearing pending |
+| Section 3 | ✅ Mostly Implemented | Pilot system + EffectStack complete, dual-mode Commands pending (23/28 rules - 82%) |
+| Section 4 | ✅ Mostly Implemented | Zone structure and validation methods complete (36/37 rules - 97%), effect clearing pending |
 | Section 5 | ✅ Mostly Implemented | Token system, HP recovery, Shield Burst detection complete (34/42 rules - 81%), UI integration pending |
 | Section 6 | ✅ Mostly Implemented | Deck validation subsystem added, mulligan fixed (15/17 rules - 88%) |
 | Section 7 | ✅ Mostly Implemented | Turn/phase system complete (28/30 rules - 93%), Action Step pending |

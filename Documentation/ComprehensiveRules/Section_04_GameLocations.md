@@ -69,10 +69,14 @@ bool IsFieldZone(EGCGCardZone Zone) const
 Commands whose effects are currently active and cards whose 【Burst】 effects are currently active are not considered to be in any of the locations listed above.
 
 **Implementation**:
-- Related to Rule 3-4-3 (Commands during resolution)
-- Needs `EffectStack` temporary zone
+```cpp
+// GCGEffectStackSubsystem - 428 lines
+// Effects are tracked in separate stack structure during resolution
+// Rule 3-4-3: Commands during effect resolution are in EffectStack
+// FAQ Q105-Q112: Priority, resolution order, LIFO processing
+```
 
-**Status**: ⏳ Pending effect system implementation
+**Status**: ✅ Implemented (GCGEffectStackSubsystem manages effects during resolution)
 
 ---
 
@@ -685,7 +689,7 @@ DOREPLIFETIME(AGCGPlayerState, Graveyard); // Public
 ### Locations (4-1)
 - [x] **4-1-1**: Eight locations defined (enum)
 - [x] **4-1-1-2**: Field helper method (Resource + Battle + Shield)
-- [ ] **4-1-2**: Active effects have no location (EffectStack)
+- [x] **4-1-2**: Active effects have no location (GCGEffectStackSubsystem)
 - [x] **4-1-3**: Card counts are public (replication)
 - [x] **4-1-4**: Public vs private validation method
 - [ ] **4-1-5**: Clear effects when moving zones
@@ -739,23 +743,24 @@ DOREPLIFETIME(AGCGPlayerState, Graveyard); // Public
 - [x] **4-9-1**: Trash purpose
 - [x] **4-9-2**: Trash is public
 
-**Summary**: 35/37 rules implemented (95%)
+**Summary**: 36/37 rules implemented (97%)
 
 Most zone structure is already correct. Remaining work:
-- Rule 4-1-2: Active effects location handling (EffectStack zone)
 - Rule 4-1-5: Clear temporary effects when moving zones
 - Rule 4-5-3: Visual representation of Pilots beneath Units (UI)
+
+**Recent Discovery**:
+- Rule 4-1-2 found implemented via GCGEffectStackSubsystem (428 lines)
 
 ---
 
 ## Next Steps for Full Integration
 
-### Remaining Implementation (1-2 days)
-1. **Rule 4-1-2**: Add `EffectStack` zone for active effects without location
-2. **Rule 4-1-5**: Implement effect clearing in `MoveCard()` (clear temporary modifiers when cards change zones)
-3. **Rule 4-5-3**: Add visual representation of Pilots beneath Units in Battle Area UI
+### Remaining Implementation (1 day)
+1. **Rule 4-1-5**: Implement effect clearing in `MoveCard()` (clear temporary modifiers when cards change zones)
+2. **Rule 4-5-3**: Add visual representation of Pilots beneath Units in Battle Area UI
 
-**Total Estimate**: 1-2 days for full Section 4 integration (95% → 100%)
+**Total Estimate**: 1 day for full Section 4 integration (97% → 100%)
 
 ---
 

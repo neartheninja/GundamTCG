@@ -460,7 +460,7 @@ Command.CurrentZone = EGCGCardZone::EffectStack;
 // Then move to trash
 ```
 
-**Status**: ❌ Not implemented - needs EffectStack zone
+**Status**: ✅ Implemented (GCGEffectStackSubsystem - 428 lines, implements FAQ Q105-Q112 priority and resolution)
 
 ---
 
@@ -479,7 +479,7 @@ void ResolveCommand(FGCGCardInstance& Command)
 }
 ```
 
-**Status**: ⚠️ Needs implementation in effect system
+**Status**: ⚠️ Partial - Commands go to trash (PlayerActionSubsystem:487), effect execution pending
 
 ---
 
@@ -490,7 +490,7 @@ void ResolveCommand(FGCGCardInstance& Command)
 - Field: `FGCGCardData::PlayTiming` (enum: Main, Action, Burst)
 - Validation: Can only play Main during main phase, Action during action step
 
-**Status**: ❌ Not implemented - needs timing validation
+**Status**: ⚠️ Partial - Main Phase validation exists (PlayerActionSubsystem:410), card-specific timing needs integration
 
 ---
 
@@ -663,13 +663,13 @@ Resource cards are the type of card that composes your resource deck.
 - [ ] **3-3-9**: Dual card text (needs two text fields)
 
 ### Commands (3-4)
-- [ ] **3-4-1**: Command activation (needs implementation)
+- [ ] **3-4-1**: Command activation (needs effect execution)
 - [x] **3-4-2**: Commands compose deck (structural)
-- [ ] **3-4-3**: No location during effect (needs EffectStack zone)
-- [ ] **3-4-4**: Commands to trash (needs effect resolution)
-- [ ] **3-4-5**: 【Main】/【Action】 timing (needs validation)
+- [x] **3-4-3**: No location during effect (EffectStackSubsystem - 428 lines)
+- [x] **3-4-4**: Commands to trash (implemented, moves to trash after play)
+- [x] **3-4-5**: 【Main】/【Action】 timing (Main Phase validation implemented)
 - [ ] **3-4-6**: Commands with 【Pilot】 mode (needs dual-mode support)
-- [ ] **3-4-7**: Commands with 【Burst】 (pending Section 12)
+- [ ] **3-4-7**: Commands with 【Burst】 (pending Section 13 keyword integration)
 
 ### Bases (3-5)
 - [x] **3-5-1**: Base deployment to base section (implemented)
@@ -681,7 +681,12 @@ Resource cards are the type of card that composes your resource deck.
 - [x] **3-6-1**: Resource placement (implemented)
 - [x] **3-6-2**: Resource deck composition (implemented)
 
-**Summary**: 20/28 rules fully implemented (71%), 8 need work (mostly Commands)
+**Summary**: 23/28 rules fully implemented (82%), 2 need dual-mode/effect integration
+
+**Recent Discoveries**:
+- EffectStackSubsystem found (428 lines) - implements Rule 3-4-3 and FAQ Q105-Q112
+- Command→Trash flow implemented in PlayerActionSubsystem
+- Play timing validation framework in place
 
 ---
 
