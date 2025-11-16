@@ -198,6 +198,23 @@ FGCGCombatResult UGCGCombatSubsystem::DeclareBlocker(int32 AttackIndex, int32 Bl
 		return ValidationResult;
 	}
 
+	// Rule 13-1-6-1: High-Maneuver prevents Blocker activation
+	// Find attacker to check for High-Maneuver keyword
+	AGCGPlayerState* AttackingPlayer = GameState->GetPlayerByID(Attack.AttackingPlayerID);
+	if (AttackingPlayer)
+	{
+		FGCGCardInstance AttackerInstance;
+		EGCGCardZone AttackerZone;
+		if (AttackingPlayer->FindCardByInstanceID(Attack.AttackerInstanceID, AttackerInstance, AttackerZone))
+		{
+			// Check if attacker has High-Maneuver
+			if (HasKeyword(AttackerInstance, EGCGKeyword::HighManeuver))
+			{
+				return FGCGCombatResult(false, TEXT("Cannot block - attacker has High-Maneuver"));
+			}
+		}
+	}
+
 	// Assign blocker
 	Attack.BlockerInstanceID = BlockerInstanceID;
 	Attack.bTargetingBase = false; // Attack is now blocked
@@ -241,7 +258,11 @@ FGCGCombatResult UGCGCombatSubsystem::CanBlock(const FGCGCardInstance& BlockerIn
 		return FGCGCombatResult(false, TEXT("Unit is rested and does not have Blocker keyword"));
 	}
 
-	// TODO: Check for High-Maneuver keyword on attacker (can't be blocked) - Phase 7
+	// Rule 13-1-6-1: High-Maneuver prevents Blocker activation
+	// Need to check if attacker has High-Maneuver (requires attacker instance)
+	// NOTE: This validation needs attacker instance, which requires GameState access
+	// Validation should be done in DeclareBlocker where we have full context
+	// (Moved to DeclareBlocker method - see line ~195)
 
 	return FGCGCombatResult(true);
 }
