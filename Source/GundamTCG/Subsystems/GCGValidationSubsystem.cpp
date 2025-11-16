@@ -425,6 +425,48 @@ FGCGValidationResult UGCGValidationSubsystem::ValidateDeckList(const FGCGDeckLis
 		}
 	}
 
+	// FAQ Q2: Deck must use 1-2 colors only
+	if (CardDatabase)
+	{
+		TSet<EGCGCardColor> DeckColors;
+
+		for (const FName& CardNumber : DeckList.MainDeck)
+		{
+			const FGCGCardData* CardData = CardDatabase->GetCardData(CardNumber);
+			if (CardData)
+			{
+				for (EGCGCardColor Color : CardData->Colors)
+				{
+					// Ignore Colorless - it doesn't count toward color limit
+					if (Color != EGCGCardColor::Colorless)
+					{
+						DeckColors.Add(Color);
+					}
+				}
+			}
+		}
+
+		if (DeckColors.Num() > 2)
+		{
+			Result.AddError(FString::Printf(TEXT("Deck uses too many colors: %d (must use 1-2 colors)"),
+				DeckColors.Num()));
+		}
+	}
+
+	// FAQ Q6: Resource Deck must contain only Resource cards
+	if (CardDatabase)
+	{
+		for (const FName& CardNumber : DeckList.ResourceDeck)
+		{
+			const FGCGCardData* CardData = CardDatabase->GetCardData(CardNumber);
+			if (CardData && CardData->CardType != EGCGCardType::Resource)
+			{
+				Result.AddError(FString::Printf(TEXT("Non-Resource card in Resource Deck: %s (Type: %d)"),
+					*CardNumber.ToString(), static_cast<int32>(CardData->CardType)));
+			}
+		}
+	}
+
 	return Result;
 }
 

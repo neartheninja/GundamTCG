@@ -14,6 +14,7 @@ AGCGPlayerState::AGCGPlayerState()
 	bHasPriority = false;
 	bHasPlacedResourceThisTurn = false;
 	bHasDrawnThisTurn = false;
+	bHasMulliganed = false; // FAQ Q10: Each player can mulligan once
 
 	// All zone arrays start empty (will be populated during game setup)
 
@@ -49,6 +50,7 @@ void AGCGPlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutL
 	DOREPLIFETIME(AGCGPlayerState, bHasPriority);
 	DOREPLIFETIME(AGCGPlayerState, bHasPlacedResourceThisTurn);
 	DOREPLIFETIME(AGCGPlayerState, bHasDrawnThisTurn);
+	DOREPLIFETIME(AGCGPlayerState, bHasMulliganed);
 }
 
 // ===== PLAYER IDENTIFICATION =====

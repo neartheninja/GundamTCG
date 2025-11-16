@@ -310,8 +310,15 @@ bool UGCGUIHelpers::CanPlayCard(AGCGPlayerState* PlayerState, const FGCGCardInst
 		return false;
 	}
 
-	// Check if we have enough resources
-	if (CardInstance.Cost > PlayerState->ResourceArea.Num())
+	// FAQ Q21-Q22: Check Level requirement (total resources including EX Resources)
+	int32 PlayerLevel = PlayerState->GetTotalResourceCount();
+	if (CardInstance.Level > PlayerLevel)
+	{
+		return false;
+	}
+
+	// Check if we have enough active resources to pay cost
+	if (CardInstance.Cost > PlayerState->GetActiveResourceCount())
 	{
 		return false;
 	}

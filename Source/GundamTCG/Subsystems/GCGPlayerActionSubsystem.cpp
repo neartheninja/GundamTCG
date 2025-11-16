@@ -161,6 +161,15 @@ FGCGPlayerActionResult UGCGPlayerActionSubsystem::CanPlayCard(const FGCGCardInst
 		return TimingResult;
 	}
 
+	// FAQ Q21-Q22: Check Level requirement (total resources including EX Resources)
+	int32 PlayerLevel = PlayerState->GetTotalResourceCount();
+	if (CardInstance.Level > PlayerLevel)
+	{
+		return FGCGPlayerActionResult(false,
+			FString::Printf(TEXT("Level too low (card is Lv.%d, you are Lv.%d)"),
+				CardInstance.Level, PlayerLevel));
+	}
+
 	// Check cost
 	if (!CanPayCost(CardInstance.Cost, PlayerState))
 	{
