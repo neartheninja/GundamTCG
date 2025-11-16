@@ -27,7 +27,7 @@ void UGCGCombatSubsystem::Deinitialize()
 // ===== ATTACK DECLARATION =====
 
 FGCGCombatResult UGCGCombatSubsystem::DeclareAttack(int32 AttackerInstanceID,
-	AGCGPlayerState* AttackingPlayer, AGCGPlayerState* DefendingPlayer, AGCGGameState* GameState)
+	AGCGPlayerState* AttackingPlayer, AGCGPlayerState* DefendingPlayer, AGCGGameState* GameState, int32 TargetUnitInstanceID)
 {
 	if (!AttackingPlayer || !DefendingPlayer || !GameState)
 	{
@@ -54,12 +54,41 @@ FGCGCombatResult UGCGCombatSubsystem::DeclareAttack(int32 AttackerInstanceID,
 		return ValidationResult;
 	}
 
+	// Rule 8-2-1: Validate attack target (player or rested Unit)
+	bool bTargetingPlayer = (TargetUnitInstanceID == 0);
+
+	if (!bTargetingPlayer)
+	{
+		// Targeting a specific Unit - must be rested
+		FGCGCardInstance TargetUnit;
+		EGCGCardZone TargetZone;
+		if (!DefendingPlayer->FindCardByInstanceID(TargetUnitInstanceID, TargetUnit, TargetZone))
+		{
+			return FGCGCombatResult(false, TEXT("Target Unit not found"));
+		}
+
+		if (TargetZone != EGCGCardZone::BattleArea)
+		{
+			return FGCGCombatResult(false, TEXT("Target Unit is not in Battle Area"));
+		}
+
+		// Rule 8-2-1: Can only attack rested Units
+		if (TargetUnit.bIsActive)
+		{
+			return FGCGCombatResult(false, TEXT("Target Unit must be rested (inactive)"));
+		}
+
+		UE_LOG(LogTemp, Log, TEXT("UGCGCombatSubsystem::DeclareAttack - Targeting rested Unit: %s (ID: %d)"),
+			*TargetUnit.CardName.ToString(), TargetUnitInstanceID);
+	}
+
 	// Create attack declaration
 	FGCGAttackDeclaration Attack;
 	Attack.AttackerInstanceID = AttackerInstanceID;
 	Attack.AttackingPlayerID = AttackingPlayer->GetPlayerID();
 	Attack.DefendingPlayerID = DefendingPlayer->GetPlayerID();
-	Attack.bTargetingBase = true; // Always target base initially
+	Attack.bTargetingBase = bTargetingPlayer; // True if attacking player, false if attacking Unit
+	Attack.TargetUnitInstanceID = TargetUnitInstanceID; // 0 if targeting player
 	Attack.BlockerInstanceID = 0; // No blocker yet
 	Attack.bResolved = false;
 
@@ -78,9 +107,18 @@ FGCGCombatResult UGCGCombatSubsystem::DeclareAttack(int32 AttackerInstanceID,
 		}
 	}
 
-	UE_LOG(LogTemp, Log, TEXT("UGCGCombatSubsystem::DeclareAttack - Player %d declared attack with %s (ID: %d) on Player %d"),
-		AttackingPlayer->GetPlayerID(), *AttackerInstance.CardName.ToString(), AttackerInstanceID,
-		DefendingPlayer->GetPlayerID());
+	if (bTargetingPlayer)
+	{
+		UE_LOG(LogTemp, Log, TEXT("UGCGCombatSubsystem::DeclareAttack - Player %d declared attack with %s (ID: %d) on Player %d"),
+			AttackingPlayer->GetPlayerID(), *AttackerInstance.CardName.ToString(), AttackerInstanceID,
+			DefendingPlayer->GetPlayerID());
+	}
+	else
+	{
+		UE_LOG(LogTemp, Log, TEXT("UGCGCombatSubsystem::DeclareAttack - Player %d declared attack with %s (ID: %d) on enemy Unit (ID: %d)"),
+			AttackingPlayer->GetPlayerID(), *AttackerInstance.CardName.ToString(), AttackerInstanceID,
+			TargetUnitInstanceID);
+	}
 
 	// TODO: Trigger "On Attack" effects (Phase 8)
 
