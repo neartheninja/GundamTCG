@@ -37,7 +37,8 @@ Each comprehensive rules section has its own markdown file:
 | Section 4 | ✅ Mostly Implemented | Zone structure exists, capacity validation added (28/37 rules - 76%) |
 | Section 5 | ✅ Core Complete | Essential mechanics implemented (24/42 rules - 57%), effect system pending |
 | Section 6 | ✅ Mostly Implemented | Deck validation subsystem added, mulligan fixed (15/17 rules - 88%) |
-| Section 7-13 | ⏳ Pending | Will use modular approach (subsystem + docs only) |
+| Section 7 | ✅ Mostly Implemented | Turn/phase system complete (28/30 rules - 93%), Action Step pending |
+| Section 8-13 | ⏳ Pending | Will use modular approach (subsystem + docs only) |
 
 ## Modular Integration Approach
 
