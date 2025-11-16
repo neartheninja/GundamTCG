@@ -40,7 +40,8 @@ Each comprehensive rules section has its own markdown file:
 | Section 7 | ✅ Mostly Implemented | Turn/phase system complete (28/30 rules - 93%), Action Step pending |
 | Section 8 | ✅ Mostly Implemented | Combat system complete (24/28 rules - 86%), effect triggers pending |
 | Section 9 | ✅ Core Complete | Priority system implemented (8/8 rules - 100%), UI integration pending |
-| Section 10-13 | ⏳ Pending | Will use modular approach (subsystem + docs only) |
+| Section 10 | ✅ Mostly Implemented | Effect system comprehensive (29/40 rules - 73%), UI integration pending |
+| Section 11-13 | ⏳ Pending | Will use modular approach (subsystem + docs only) |
 
 ## Modular Integration Approach
 
