@@ -160,6 +160,42 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Game Flow")
 	void EndGame(int32 WinnerPlayerID);
 
+	// ===== SECTION 11: RULES MANAGEMENT (ZONE LIMITS) =====
+
+	/**
+	 * Rule 11-4-2: Enforce Battle Area limit (max 6 Units)
+	 * If over limit, player chooses Unit to trash
+	 * @param PlayerState The player to check
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Rules Management")
+	void EnforceBattleAreaLimit(AGCGPlayerState* PlayerState);
+
+	/**
+	 * Rule 11-5-2: Enforce Base Section limit (max 1 Base)
+	 * If over limit, player chooses Base to trash
+	 * @param PlayerState The player to check
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Rules Management")
+	void EnforceBaseSectionLimit(AGCGPlayerState* PlayerState);
+
+	/**
+	 * Rule 11-4-2: Request player to choose Unit to remove from Battle Area
+	 * Used when Battle Area exceeds 6 Units
+	 * @param PlayerID The player making the choice
+	 * @return Instance ID of chosen Unit
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Rules Management")
+	int32 RequestChooseUnitToRemove(int32 PlayerID);
+
+	/**
+	 * Rule 11-5-2: Request player to choose Base to remove from Base Section
+	 * Used when Base Section exceeds 1 Base
+	 * @param PlayerID The player making the choice
+	 * @return Instance ID of chosen Base
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Rules Management")
+	int32 RequestChooseBaseToRemove(int32 PlayerID);
+
 	// ===== AUTOMATIC PHASE PROGRESSION =====
 
 	/**

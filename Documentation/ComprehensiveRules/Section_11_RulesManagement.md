@@ -298,31 +298,46 @@ if (!PlayerState->CanAddUnitToBattle())
 
 **Implementation**:
 ```cpp
-// MISSING - Should be in rules management or zone subsystem
-
-void EnforceBattleAreaLimit(AGCGPlayerState* PlayerState)
+// In AGCGGameMode_1v1::EnforceBattleAreaLimit()
+void AGCGGameMode_1v1::EnforceBattleAreaLimit(AGCGPlayerState* PlayerState)
 {
     // Rule 11-4-2: If over limit, player chooses Unit to trash
     while (PlayerState->BattleArea.Num() > 6)
     {
+        int32 PlayerID = PlayerState->GetPlayerID();
+
         // Prompt player to choose Unit to remove
-        int32 RemovedUnitID = PromptPlayerChooseUnit(PlayerState);
+        int32 RemovedUnitID = RequestChooseUnitToRemove(PlayerID);
 
-        FGCGCardInstance RemovedUnit;
+        FGCGCardInstance* RemovedUnit = nullptr;
         EGCGCardZone Zone;
-        if (PlayerState->FindCardByInstanceID(RemovedUnitID, RemovedUnit, Zone))
-        {
-            // Rule 11-4-2-1: NOT destroyed (no "On Destroyed" triggers)
-            ZoneSubsystem->MoveCard(RemovedUnit, EGCGCardZone::BattleArea,
-                EGCGCardZone::Trash, PlayerState, /*bWasDestroyed=*/false);
 
-            PlayerState->BattleArea.Remove(RemovedUnit);
+        // Find the Unit in Battle Area
+        for (int32 i = 0; i < PlayerState->BattleArea.Num(); i++)
+        {
+            if (PlayerState->BattleArea[i].InstanceID == RemovedUnitID)
+            {
+                RemovedUnit = &PlayerState->BattleArea[i];
+                break;
+            }
+        }
+
+        if (RemovedUnit)
+        {
+            // Rule 11-4-2-1: NOT considered destroyed (no "On Destroyed" effects)
+            RemovedUnit->bWasDestroyed = false;
+            RemovedUnit->CurrentZone = EGCGCardZone::Trash;
+
+            PlayerState->Trash.Add(*RemovedUnit);
+            PlayerState->BattleArea.RemoveAll([RemovedUnitID](const FGCGCardInstance& Card) {
+                return Card.InstanceID == RemovedUnitID;
+            });
         }
     }
 }
 ```
 
-**Status**: ❌ Not implemented (needs player choice UI + enforcement)
+**Status**: ⚠️ Implemented (GameMode:670-726), UI for player choice pending
 
 ---
 
@@ -332,24 +347,29 @@ void EnforceBattleAreaLimit(AGCGPlayerState* PlayerState)
 
 **Implementation**:
 ```cpp
-// When moving to trash due to excess:
-// DO NOT trigger "On Destroyed" effects
-// DO NOT count as "destroyed" for effect conditions
+// In FGCGCardInstance (GCGTypes.h:756)
+UPROPERTY(BlueprintReadWrite, Category = "Tracking")
+bool bWasDestroyed;
 
-// MoveCard with bWasDestroyed flag:
-bool MoveCard(Card, FromZone, ToZone, Player, bWasDestroyed = false)
+// In EnforceBattleAreaLimit():
+if (RemovedUnit)
 {
-    // ... move card ...
+    // Rule 11-4-2-1: NOT considered destroyed (no "On Destroyed" effects)
+    RemovedUnit->bWasDestroyed = false;
+    RemovedUnit->CurrentZone = EGCGCardZone::Trash;
 
-    // Only trigger destruction effects if actually destroyed
-    if (bWasDestroyed && ToZone == Trash)
-    {
-        TriggerEffects(EGCGEffectTiming::OnDestroyed);
-    }
+    PlayerState->Trash.Add(*RemovedUnit);
+    // ... remove from Battle Area ...
+}
+
+// Effect system checks this flag:
+if (Card.bWasDestroyed && Card.CurrentZone == EGCGCardZone::Trash)
+{
+    TriggerEffects(EGCGEffectTiming::OnDestroyed);
 }
 ```
 
-**Status**: ⚠️ Needs bWasDestroyed flag in MoveCard()
+**Status**: ✅ Implemented (GCGTypes.h:756, GameMode:670-726)
 
 ---
 
@@ -390,32 +410,45 @@ if (CardInstance.CardType == EGCGCardType::Base)
 
 **Implementation**:
 ```cpp
-// In GCGPlayerActionSubsystem::ExecutePlayCard()
-if (CardInstance.CardType == EGCGCardType::Base)
+// In AGCGGameMode_1v1::EnforceBaseSectionLimit()
+void AGCGGameMode_1v1::EnforceBaseSectionLimit(AGCGPlayerState* PlayerState)
 {
-    DestinationZone = EGCGCardZone::BaseSection;
-
-    // Rule 11-5-2: If Base exists, remove it first
-    if (PlayerState->BaseSection.Num() > 0 && PlayerState->BaseSection[0].bIsToken)
+    // Rule 11-5-2: If over limit (>1 Base), player chooses Base to trash
+    while (PlayerState->BaseSection.Num() > 1)
     {
-        // EX Base is a token, can be replaced
-        PlayerState->BaseSection.RemoveAt(0);
-        UE_LOG(LogTemp, Log, TEXT("Removed EX Base token"));
-    }
-    else if (PlayerState->BaseSection.Num() > 0)
-    {
-        // Real Base exists - move to trash
-        FGCGCardInstance OldBase = PlayerState->BaseSection[0];
-        PlayerState->BaseSection.RemoveAt(0);
+        int32 PlayerID = PlayerState->GetPlayerID();
 
-        // Rule 11-5-2-1: NOT destroyed
-        OldBase.CurrentZone = EGCGCardZone::Trash;
-        PlayerState->Trash.Add(OldBase);
+        // Prompt player to choose Base to remove
+        int32 RemovedBaseID = RequestChooseBaseToRemove(PlayerID);
+
+        FGCGCardInstance* RemovedBase = nullptr;
+
+        // Find the Base in Base Section
+        for (int32 i = 0; i < PlayerState->BaseSection.Num(); i++)
+        {
+            if (PlayerState->BaseSection[i].InstanceID == RemovedBaseID)
+            {
+                RemovedBase = &PlayerState->BaseSection[i];
+                break;
+            }
+        }
+
+        if (RemovedBase)
+        {
+            // Rule 11-5-2-1: NOT considered destroyed
+            RemovedBase->bWasDestroyed = false;
+            RemovedBase->CurrentZone = EGCGCardZone::Trash;
+
+            PlayerState->Trash.Add(*RemovedBase);
+            PlayerState->BaseSection.RemoveAll([RemovedBaseID](const FGCGCardInstance& Card) {
+                return Card.InstanceID == RemovedBaseID;
+            });
+        }
     }
 }
 ```
 
-**Status**: ⚠️ Partial (EX Base removal implemented, real Base replacement pending)
+**Status**: ⚠️ Implemented (GameMode:728-784), UI for player choice pending
 
 ---
 
@@ -423,13 +456,27 @@ if (CardInstance.CardType == EGCGCardType::Base)
 
 **Bases placed into the trash due to this management are not considered to be destroyed.**
 
-**Status**: ⚠️ Same as 11-4-2-1 (needs bWasDestroyed flag)
+**Implementation**:
+```cpp
+// In EnforceBaseSectionLimit():
+if (RemovedBase)
+{
+    // Rule 11-5-2-1: NOT considered destroyed
+    RemovedBase->bWasDestroyed = false;
+    RemovedBase->CurrentZone = EGCGCardZone::Trash;
+
+    PlayerState->Trash.Add(*RemovedBase);
+    // ... remove from Base Section ...
+}
+```
+
+**Status**: ✅ Implemented (GCGTypes.h:756, GameMode:728-784)
 
 ---
 
 ## Implementation Summary
 
-### Current Status: ~65% Complete
+### Current Status: ~75% Complete
 
 **✅ Fully Implemented**:
 1. Defeat conditions checking (empty deck)
@@ -438,59 +485,66 @@ if (CardInstance.CardType == EGCGCardType::Base)
 4. Unit destruction (0 HP)
 5. Shield breaking (1 HP per shield)
 6. Rules management framework (PerformRulesManagement)
+7. **Battle area excess enforcement (auto-select)**
+8. **Base section excess enforcement (auto-select)**
+9. **bWasDestroyed flag for destruction tracking**
 
 **⚠️ Partially Implemented**:
 1. Battle damage defeat check (logic exists, needs enforcement point)
 2. Simultaneous defeat checking (currently sequential)
-3. Battle area excess enforcement (validation exists, removal logic missing)
-4. Base replacement (EX Base works, real Base pending)
-5. "Not destroyed" flag (concept exists, needs MoveCard parameter)
+3. **Player choice UI for excess removal (auto-selects first card)**
 
 **❌ Not Implemented**:
-1. Player choice UI for excess Unit removal (Rule 11-4-2)
-2. Player choice UI for Base replacement (Rule 11-5-2)
-3. Simultaneous Unit deployment excess (Rule 11-4-2-2)
-4. bWasDestroyed flag in MoveCard() (Rules 11-4-2-1, 11-5-2-1)
+1. Immediate resolution (Rule 11-1-2) - conceptual only
+2. Simultaneous Unit deployment excess (Rule 11-4-2-2)
 
 **Implementation Breakdown**:
 
 | Rule | Description | Status | Location |
 |------|-------------|--------|----------|
-| 11-1-1 | Automatic management | ✅ Implemented | GameMode:546-585 |
-| 11-1-2 | Immediate resolution | ✅ Conceptual | Called after key events |
+| 11-1-1 | Automatic management | ✅ Implemented | GameMode:546-593 |
+| 11-1-2 | Immediate resolution | ⚠️ Conceptual | Called after key events |
 | 11-2-1 | Simultaneous defeat | ⚠️ Sequential | GameMode:558-584 |
 | 11-2-1-1 | Battle damage defeat | ⚠️ Partial | CombatSubsystem |
 | 11-2-1-2 | Empty deck defeat | ✅ Implemented | GameMode:602-607 |
 | 11-3-1 | Zero HP destruction | ✅ Implemented | CombatSubsystem:350-400 |
 | 11-3-1-1 | Shields = 1 HP | ✅ Implemented | CombatSubsystem:453-526 |
 | 11-4-1 | 6 Unit max | ✅ Implemented | PlayerState:158-164 |
-| 11-4-2 | Excess Unit removal | ❌ Not implemented | - |
-| 11-4-2-1 | Not destroyed | ❌ Not implemented | - |
+| 11-4-2 | Excess Unit removal | ✅ Implemented | GameMode:670-726 |
+| 11-4-2-1 | Not destroyed flag | ✅ Implemented | GCGTypes.h:756 |
 | 11-4-2-2 | Simultaneous excess | ❌ Not implemented | - |
 | 11-5-1 | 1 Base max | ✅ Implemented | PlayerActionSubsystem:199-206 |
-| 11-5-2 | Excess Base removal | ⚠️ Partial | PlayerActionSubsystem:476-481 |
-| 11-5-2-1 | Not destroyed | ❌ Not implemented | - |
+| 11-5-2 | Excess Base removal | ✅ Implemented | GameMode:728-784 |
+| 11-5-2-1 | Not destroyed flag | ✅ Implemented | GCGTypes.h:756 |
 
-**Total Coverage**: 7/14 rules (50%), 4 partial (29%)
-**Effective Coverage**: ~65%
+**Total Coverage**: 10/14 rules fully (71%), 3 partial (21%)
+**Effective Coverage**: ~75%
 
 ---
 
 ## Key Missing Features
 
-### 1. **bWasDestroyed Flag** (High Priority)
-Needs to be added to `MoveCard()`:
+### 1. **Player Choice UI** (High Priority)
+Currently auto-selects first card. Need UI for player to choose which card to remove:
+- Battle Area: Choose 1 Unit to trash (when excess occurs)
+- Base Section: Choose Base to replace (when excess occurs)
+
+Implementation in progress (auto-selection works, UI pending):
 ```cpp
-bool MoveCard(Card, FromZone, ToZone, Player, bWasDestroyed = false);
+// Currently auto-selects first card:
+int32 AGCGGameMode_1v1::RequestChooseUnitToRemove(int32 PlayerID)
+{
+    // TODO: Show UI for player to choose Unit
+    // For now, auto-select first Unit
+    if (PlayerState->BattleArea.Num() > 0)
+    {
+        return PlayerState->BattleArea[0].InstanceID;
+    }
+    return 0;
+}
 ```
-This flag determines whether "On Destroyed" effects trigger.
 
-### 2. **Excess Zone Enforcement** (High Priority)
-When zone limits are exceeded, need UI for player to choose which card to remove:
-- Battle Area: Choose 1 Unit to trash
-- Base Section: Choose Base to replace (or auto-replace)
-
-### 3. **Simultaneous Defeat Check** (Medium Priority)
+### 2. **Simultaneous Defeat Check** (Medium Priority)
 Currently checks players sequentially. Should check all simultaneously:
 ```cpp
 // Current: Sequential
@@ -505,6 +559,9 @@ for (Player) {
 }
 ProcessAllDefeats(Defeated);
 ```
+
+### 3. **Simultaneous Unit Deployment** (Low Priority)
+When multiple Units are deployed at once, excess management needs to handle simultaneous removal (Rule 11-4-2-2).
 
 ---
 

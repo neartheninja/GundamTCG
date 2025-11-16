@@ -549,8 +549,8 @@ void AGCGGameMode_1v1::ExecuteEndPhase()
 
 void AGCGGameMode_1v1::PerformRulesManagement()
 {
-	// Comprehensive Rules 1-2-3: Rules Management
-	// Check defeat conditions for all players and process game state
+	// Comprehensive Rules Section 11: Rules Management
+	// Automatic state-based actions that occur when conditions are met
 
 	UE_LOG(LogTemp, Verbose, TEXT("AGCGGameMode_1v1::PerformRulesManagement - Performing rules management"));
 
@@ -564,7 +564,7 @@ void AGCGGameMode_1v1::PerformRulesManagement()
 
 		int32 PlayerID = PlayerState->GetPlayerID();
 
-		// Check if this player meets defeat conditions
+		// Rule 11-2: Check defeat conditions
 		if (CheckDefeatConditions(PlayerID))
 		{
 			// Mark player as lost
@@ -581,7 +581,15 @@ void AGCGGameMode_1v1::PerformRulesManagement()
 			EndGame(OpponentID);
 			return;
 		}
+
+		// Rule 11-4: Enforce Battle Area limit (max 6 Units)
+		EnforceBattleAreaLimit(PlayerState);
+
+		// Rule 11-5: Enforce Base Section limit (max 1 Base)
+		EnforceBaseSectionLimit(PlayerState);
 	}
+
+	// Rule 11-3: Destruction management (0 HP) is handled by combat subsystem
 }
 
 bool AGCGGameMode_1v1::CheckDefeatConditions(int32 PlayerID) const
@@ -663,6 +671,160 @@ void AGCGGameMode_1v1::EndGame(int32 WinnerPlayerID)
 
 	// Call Blueprint event
 	GCGGameState->OnGameEnded(WinnerPlayerID);
+}
+
+// ===== SECTION 11: RULES MANAGEMENT (ZONE LIMITS) =====
+
+void AGCGGameMode_1v1::EnforceBattleAreaLimit(AGCGPlayerState* PlayerState)
+{
+	// Rule 11-4-1: Battle area limited to 6 Units at most
+	// Rule 11-4-2: If over limit, player chooses Unit to trash
+
+	if (!PlayerState)
+	{
+		return;
+	}
+
+	int32 PlayerID = PlayerState->GetPlayerID();
+
+	// Check if over limit
+	while (PlayerState->BattleArea.Num() > 6)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[Rules Management] Player %d Battle Area over limit (%d/6) - choosing Unit to remove"),
+			PlayerID, PlayerState->BattleArea.Num());
+
+		// Request player to choose Unit to remove
+		int32 RemovedUnitID = RequestChooseUnitToRemove(PlayerID);
+
+		if (RemovedUnitID == 0)
+		{
+			// Player failed to choose - remove first Unit (should not happen in normal gameplay)
+			UE_LOG(LogTemp, Error, TEXT("[Rules Management] Player %d failed to choose Unit - auto-removing first Unit"),
+				PlayerID);
+			RemovedUnitID = PlayerState->BattleArea[0].InstanceID;
+		}
+
+		// Find the Unit
+		FGCGCardInstance* RemovedUnit = nullptr;
+		for (FGCGCardInstance& Unit : PlayerState->BattleArea)
+		{
+			if (Unit.InstanceID == RemovedUnitID)
+			{
+				RemovedUnit = &Unit;
+				break;
+			}
+		}
+
+		if (RemovedUnit)
+		{
+			// Rule 11-4-2-1: NOT considered destroyed (no "On Destroyed" effects)
+			RemovedUnit->bWasDestroyed = false;
+			RemovedUnit->CurrentZone = EGCGCardZone::Trash;
+
+			// Move to trash
+			PlayerState->Trash.Add(*RemovedUnit);
+			PlayerState->BattleArea.RemoveAll([RemovedUnitID](const FGCGCardInstance& Card) {
+				return Card.InstanceID == RemovedUnitID;
+			});
+
+			UE_LOG(LogTemp, Log, TEXT("[Rules Management] Removed Unit %s from Battle Area (not destroyed)"),
+				*RemovedUnit->CardName.ToString());
+		}
+	}
+}
+
+void AGCGGameMode_1v1::EnforceBaseSectionLimit(AGCGPlayerState* PlayerState)
+{
+	// Rule 11-5-1: Base section limited to 1 Base at most
+	// Rule 11-5-2: If over limit, player chooses Base to trash
+
+	if (!PlayerState)
+	{
+		return;
+	}
+
+	int32 PlayerID = PlayerState->GetPlayerID();
+
+	// Check if over limit
+	while (PlayerState->BaseSection.Num() > 1)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[Rules Management] Player %d Base Section over limit (%d/1) - choosing Base to remove"),
+			PlayerID, PlayerState->BaseSection.Num());
+
+		// Request player to choose Base to remove
+		int32 RemovedBaseID = RequestChooseBaseToRemove(PlayerID);
+
+		if (RemovedBaseID == 0)
+		{
+			// Player failed to choose - remove first Base (should not happen in normal gameplay)
+			UE_LOG(LogTemp, Error, TEXT("[Rules Management] Player %d failed to choose Base - auto-removing first Base"),
+				PlayerID);
+			RemovedBaseID = PlayerState->BaseSection[0].InstanceID;
+		}
+
+		// Find the Base
+		FGCGCardInstance* RemovedBase = nullptr;
+		for (FGCGCardInstance& Base : PlayerState->BaseSection)
+		{
+			if (Base.InstanceID == RemovedBaseID)
+			{
+				RemovedBase = &Base;
+				break;
+			}
+		}
+
+		if (RemovedBase)
+		{
+			// Rule 11-5-2-1: NOT considered destroyed (no "On Destroyed" effects)
+			RemovedBase->bWasDestroyed = false;
+			RemovedBase->CurrentZone = EGCGCardZone::Trash;
+
+			// Move to trash
+			PlayerState->Trash.Add(*RemovedBase);
+			PlayerState->BaseSection.RemoveAll([RemovedBaseID](const FGCGCardInstance& Card) {
+				return Card.InstanceID == RemovedBaseID;
+			});
+
+			UE_LOG(LogTemp, Log, TEXT("[Rules Management] Removed Base %s from Base Section (not destroyed)"),
+				*RemovedBase->CardName.ToString());
+		}
+	}
+}
+
+int32 AGCGGameMode_1v1::RequestChooseUnitToRemove(int32 PlayerID)
+{
+	// Rule 11-4-2: Player chooses which Unit to remove from Battle Area
+	// TODO: Implement UI for player choice
+
+	AGCGPlayerState* PlayerState = GetPlayerStateByID(PlayerID);
+	if (!PlayerState || PlayerState->BattleArea.Num() == 0)
+	{
+		return 0;
+	}
+
+	// Temporary: Auto-choose first Unit
+	// In production, this should prompt the player via UI
+	UE_LOG(LogTemp, Warning, TEXT("[Rules Management] RequestChooseUnitToRemove - UI not implemented, auto-choosing first Unit"));
+
+	return PlayerState->BattleArea[0].InstanceID;
+}
+
+int32 AGCGGameMode_1v1::RequestChooseBaseToRemove(int32 PlayerID)
+{
+	// Rule 11-5-2: Player chooses which Base to remove from Base Section
+	// TODO: Implement UI for player choice
+
+	AGCGPlayerState* PlayerState = GetPlayerStateByID(PlayerID);
+	if (!PlayerState || PlayerState->BaseSection.Num() == 0)
+	{
+		return 0;
+	}
+
+	// Temporary: Auto-choose first Base
+	// In production, this should prompt the player via UI
+	UE_LOG(LogTemp, Warning, TEXT("[Rules Management] RequestChooseBaseToRemove - UI not implemented, auto-choosing first Base"));
+
+	return PlayerState->BaseSection[0].InstanceID;
 }
 
 // ===== AUTOMATIC PHASE PROGRESSION =====

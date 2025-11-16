@@ -750,6 +750,11 @@ struct FGCGCardInstance
     UPROPERTY(BlueprintReadWrite, Category = "Tracking")
     EGCGDamageSource LastDamageSource;
 
+    // Rule 11-4-2-1: Was this card destroyed (vs just moved to trash)?
+    // Used to distinguish destruction (triggers "On Destroyed" effects) from removal (doesn't)
+    UPROPERTY(BlueprintReadWrite, Category = "Tracking")
+    bool bWasDestroyed;
+
     // Default constructor
     FGCGCardInstance()
     {
@@ -767,6 +772,7 @@ struct FGCGCardInstance
         bHasAttackedThisTurn = false;
         ActivationCountThisTurn = 0;
         LastDamageSource = EGCGDamageSource::None;
+        bWasDestroyed = false;
     }
 
     // ===== HELPER FUNCTIONS =====
