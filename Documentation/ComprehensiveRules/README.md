@@ -39,7 +39,8 @@ Each comprehensive rules section has its own markdown file:
 | Section 6 | ✅ Mostly Implemented | Deck validation subsystem added, mulligan fixed (15/17 rules - 88%) |
 | Section 7 | ✅ Mostly Implemented | Turn/phase system complete (28/30 rules - 93%), Action Step pending |
 | Section 8 | ✅ Mostly Implemented | Combat system complete (23/28 rules - 82%), attack rested Unit pending |
-| Section 9-13 | ⏳ Pending | Will use modular approach (subsystem + docs only) |
+| Section 9 | 🔄 In Progress | Action Step enums defined, priority system pending (1/8 rules - 12.5%) |
+| Section 10-13 | ⏳ Pending | Will use modular approach (subsystem + docs only) |
 
 ## Modular Integration Approach
 
