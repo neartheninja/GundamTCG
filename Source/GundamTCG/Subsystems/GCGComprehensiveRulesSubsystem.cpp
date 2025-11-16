@@ -347,13 +347,148 @@ FGCGRulesValidationResult UGCGComprehensiveRulesSubsystem::ValidateRule_3_3_4_On
 	return FGCGRulesValidationResult(true, TEXT("3-3-4"));
 }
 
-// ===== PLACEHOLDER METHODS FOR SECTIONS 4-13 =====
-// These will be implemented when comprehensive rules sections are provided
+// ===== SECTION 4: GAME LOCATIONS =====
 
-FGCGRulesValidationResult UGCGComprehensiveRulesSubsystem::ValidateSection4_Placeholder() const
+FGCGRulesValidationResult UGCGComprehensiveRulesSubsystem::ValidateRule_4_4_2_ResourceAreaLimit(const AGCGPlayerState* PlayerState) const
 {
-	return FGCGRulesValidationResult(true, TEXT("4-X"), TEXT("Section 4 not yet implemented"));
+	// Rule 4-4-2: Max 15 resources in resource area
+	// Rule 4-4-2-1: Max 5 EX Resources
+
+	if (!PlayerState)
+	{
+		return FGCGRulesValidationResult(false, TEXT("4-4-2"), TEXT("Invalid player state"));
+	}
+
+	int32 TotalResources = PlayerState->ResourceArea.Num();
+
+	// Rule 4-4-2: Max 15 resources
+	if (TotalResources >= 15)
+	{
+		return FGCGRulesValidationResult(
+			false,
+			TEXT("4-4-2"),
+			FString::Printf(TEXT("Resource area is full (%d/15 resources)"), TotalResources)
+		);
+	}
+
+	// Rule 4-4-2-1: Max 5 EX Resources
+	int32 EXResourceCount = 0;
+	for (const FGCGCardInstance& Resource : PlayerState->ResourceArea)
+	{
+		if (Resource.bIsToken && Resource.TokenType == FName("EXResource"))
+		{
+			EXResourceCount++;
+		}
+	}
+
+	if (EXResourceCount >= 5)
+	{
+		return FGCGRulesValidationResult(
+			false,
+			TEXT("4-4-2-1"),
+			FString::Printf(TEXT("EX Resource limit reached (%d/5 EX Resources)"), EXResourceCount)
+		);
+	}
+
+	return FGCGRulesValidationResult(true, TEXT("4-4-2"));
 }
+
+FGCGRulesValidationResult UGCGComprehensiveRulesSubsystem::ValidateRule_4_5_4_BattleAreaLimit(const AGCGPlayerState* PlayerState) const
+{
+	// Rule 4-5-4: Max 6 Units in battle area
+
+	if (!PlayerState)
+	{
+		return FGCGRulesValidationResult(false, TEXT("4-5-4"), TEXT("Invalid player state"));
+	}
+
+	UGCGCardDatabase* CardDB = GetCardDatabase();
+	if (!CardDB)
+	{
+		return FGCGRulesValidationResult(false, TEXT("4-5-4"), TEXT("Card database not available"));
+	}
+
+	// Count only Units (not Pilots stored beneath them)
+	int32 UnitCount = 0;
+	for (const FGCGCardInstance& Card : PlayerState->BattleArea)
+	{
+		const FGCGCardData* CardData = CardDB->GetCardData(Card.CardNumber);
+		if (CardData && CardData->CardType == EGCGCardType::Unit)
+		{
+			UnitCount++;
+		}
+	}
+
+	if (UnitCount >= 6)
+	{
+		return FGCGRulesValidationResult(
+			false,
+			TEXT("4-5-4"),
+			FString::Printf(TEXT("Battle area is full (%d/6 Units)"), UnitCount)
+		);
+	}
+
+	return FGCGRulesValidationResult(true, TEXT("4-5-4"));
+}
+
+FGCGRulesValidationResult UGCGComprehensiveRulesSubsystem::ValidateRule_4_6_3_BaseSectionLimit(const AGCGPlayerState* PlayerState) const
+{
+	// Rule 4-6-3: Max 1 Base in base section
+
+	if (!PlayerState)
+	{
+		return FGCGRulesValidationResult(false, TEXT("4-6-3"), TEXT("Invalid player state"));
+	}
+
+	if (PlayerState->BaseSection.Num() >= 1)
+	{
+		return FGCGRulesValidationResult(
+			false,
+			TEXT("4-6-3"),
+			TEXT("Base section already has a Base (maximum 1)")
+		);
+	}
+
+	return FGCGRulesValidationResult(true, TEXT("4-6-3"));
+}
+
+FGCGRulesValidationResult UGCGComprehensiveRulesSubsystem::ValidateRule_4_8_4_HandSizeLimit(
+	const AGCGPlayerState* PlayerState,
+	bool bIsEndPhase) const
+{
+	// Rule 4-8-4: Hand limit of 10 cards, enforced during end phase
+
+	if (!PlayerState)
+	{
+		return FGCGRulesValidationResult(false, TEXT("4-8-4"), TEXT("Invalid player state"));
+	}
+
+	const int32 MaxHandSize = 10;
+	int32 CurrentHandSize = PlayerState->Hand.Num();
+
+	// Rule 4-8-4: Hand limit only enforced during end phase
+	if (!bIsEndPhase)
+	{
+		// Can temporarily exceed limit during other phases
+		return FGCGRulesValidationResult(true, TEXT("4-8-4"));
+	}
+
+	if (CurrentHandSize > MaxHandSize)
+	{
+		int32 CardsToDiscard = CurrentHandSize - MaxHandSize;
+		return FGCGRulesValidationResult(
+			false,
+			TEXT("4-8-4"),
+			FString::Printf(TEXT("Hand size exceeds limit (%d/%d) - must discard %d card(s)"),
+				CurrentHandSize, MaxHandSize, CardsToDiscard)
+		);
+	}
+
+	return FGCGRulesValidationResult(true, TEXT("4-8-4"));
+}
+
+// ===== PLACEHOLDER METHODS FOR SECTIONS 5-13 =====
+// These will be implemented when comprehensive rules sections are provided
 
 FGCGRulesValidationResult UGCGComprehensiveRulesSubsystem::ValidateSection5_Placeholder() const
 {

@@ -204,14 +204,88 @@ public:
 	}
 
 	// ===== SECTION 4: GAME LOCATIONS =====
-	// To be implemented when Section 4 is provided
 
 	/**
-	 * Rule 4-X: [Placeholder for Section 4 rules]
+	 * Rule 4-1-1-2: Check if zone is part of "the field"
+	 * Field = Resource Area + Battle Area + Shield Area
+	 * @param Zone Zone to check
+	 * @return True if zone is part of the field
+	 */
+	UFUNCTION(BlueprintPure, Category = "Comprehensive Rules|Section 4")
+	static bool IsFieldZone(EGCGCardZone Zone)
+	{
+		// Rule 4-1-1-2: Field = Resource Area + Battle Area + Shield Area
+		return Zone == EGCGCardZone::ResourceArea ||
+		       Zone == EGCGCardZone::BattleArea ||
+		       Zone == EGCGCardZone::BaseSection ||
+		       Zone == EGCGCardZone::ShieldStack;
+	}
+
+	/**
+	 * Rule 4-1-4: Check if zone is public or private
+	 * @param Zone Zone to check
+	 * @return True if public, false if private
+	 */
+	UFUNCTION(BlueprintPure, Category = "Comprehensive Rules|Section 4")
+	static bool IsPublicZone(EGCGCardZone Zone)
+	{
+		// Rule 4-1-4: Public zones vs private zones
+		switch (Zone)
+		{
+			// Public zones
+			case EGCGCardZone::ResourceArea:
+			case EGCGCardZone::BattleArea:
+			case EGCGCardZone::BaseSection:
+			case EGCGCardZone::RemovalArea:
+			case EGCGCardZone::Graveyard:
+				return true;
+
+			// Private zones
+			case EGCGCardZone::Deck:
+			case EGCGCardZone::ResourceDeck:
+			case EGCGCardZone::ShieldStack:
+			case EGCGCardZone::Hand:
+				return false;
+
+			default:
+				return false;
+		}
+	}
+
+	/**
+	 * Rule 4-4-2: Validate resource area capacity (max 15 resources, max 5 EX Resources)
+	 * @param PlayerState Player to check
 	 * @return Validation result
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Comprehensive Rules|Section 4")
-	FGCGRulesValidationResult ValidateSection4_Placeholder() const;
+	FGCGRulesValidationResult ValidateRule_4_4_2_ResourceAreaLimit(const AGCGPlayerState* PlayerState) const;
+
+	/**
+	 * Rule 4-5-4: Validate battle area capacity (max 6 Units)
+	 * @param PlayerState Player to check
+	 * @return Validation result
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Comprehensive Rules|Section 4")
+	FGCGRulesValidationResult ValidateRule_4_5_4_BattleAreaLimit(const AGCGPlayerState* PlayerState) const;
+
+	/**
+	 * Rule 4-6-3: Validate base section capacity (max 1 Base)
+	 * @param PlayerState Player to check
+	 * @return Validation result
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Comprehensive Rules|Section 4")
+	FGCGRulesValidationResult ValidateRule_4_6_3_BaseSectionLimit(const AGCGPlayerState* PlayerState) const;
+
+	/**
+	 * Rule 4-8-4: Validate hand size limit (max 10 during end phase)
+	 * @param PlayerState Player to check
+	 * @param bIsEndPhase Is it currently the end phase?
+	 * @return Validation result
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Comprehensive Rules|Section 4")
+	FGCGRulesValidationResult ValidateRule_4_8_4_HandSizeLimit(
+		const AGCGPlayerState* PlayerState,
+		bool bIsEndPhase) const;
 
 	// ===== SECTION 5: ESSENTIAL GAME TERMINOLOGY =====
 	// To be implemented when Section 5 is provided
