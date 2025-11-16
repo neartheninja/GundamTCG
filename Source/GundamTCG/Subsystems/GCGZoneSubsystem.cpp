@@ -103,6 +103,34 @@ bool UGCGZoneSubsystem::MoveCard(FGCGCardInstance& Card, EGCGCardZone FromZone, 
 	// Update card's current zone
 	Card.CurrentZone = ToZone;
 
+	// Rule 3-3-6: If Unit with Pilot is moved, move Pilot to same location
+	if (Card.CardType == EGCGCardType::Unit && Card.PairedCardInstanceID != -1)
+	{
+		// Find paired Pilot in Battle Area
+		FGCGCardInstance* PilotInstance = nullptr;
+		for (FGCGCardInstance& BattleCard : PlayerState->BattleArea)
+		{
+			if (BattleCard.InstanceID == Card.PairedCardInstanceID)
+			{
+				PilotInstance = &BattleCard;
+				break;
+			}
+		}
+
+		if (PilotInstance)
+		{
+			// Move Pilot to same zone as Unit
+			UE_LOG(LogTemp, Log, TEXT("UGCGZoneSubsystem::MoveCard - Rule 3-3-6: Moving paired Pilot %s with Unit %s to %s"),
+				*PilotInstance->CardName.ToString(), *Card.CardName.ToString(), *GetZoneName(ToZone));
+
+			// Recursively move Pilot (but set PairedCardInstanceID to -1 temporarily to avoid infinite recursion)
+			int32 SavedPairedID = PilotInstance->PairedCardInstanceID;
+			PilotInstance->PairedCardInstanceID = -1; // Temporarily unpair to avoid recursion
+			MoveCard(*PilotInstance, FromZone, ToZone, PlayerState, GameState, false); // Don't validate limits for Pilot
+			PilotInstance->PairedCardInstanceID = SavedPairedID; // Restore pairing
+		}
+	}
+
 	// Apply zone entry rules
 	ApplyZoneEntryRules(Card, ToZone);
 

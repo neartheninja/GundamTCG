@@ -94,6 +94,37 @@ FGCGLinkResult UGCGLinkUnitSubsystem::PairPilotWithUnit(
 	LinkUnitInstance.PairedCardInstanceID = PilotInstance.InstanceID;
 	PilotInstance.PairedCardInstanceID = LinkUnitInstance.InstanceID;
 
+	// Rule 3-3-8-1: Add Pilot's AP and HP modifiers to paired Unit
+	if (PilotData->AP != 0)
+	{
+		FGCGActiveModifier APModifier;
+		APModifier.ModifierType = FName("AP");
+		APModifier.Amount = PilotData->AP;
+		APModifier.Duration = EGCGModifierDuration::WhilePaired;
+		APModifier.SourceInstanceID = PilotInstance.InstanceID;
+		APModifier.TurnCreated = 0; // Permanent while paired
+
+		LinkUnitInstance.ActiveModifiers.Add(APModifier);
+
+		UE_LOG(LogTemp, Log, TEXT("GCGLinkUnitSubsystem: Added +%d AP from Pilot %s"),
+			PilotData->AP, *PilotData->CardName.ToString());
+	}
+
+	if (PilotData->HP != 0)
+	{
+		FGCGActiveModifier HPModifier;
+		HPModifier.ModifierType = FName("HP");
+		HPModifier.Amount = PilotData->HP;
+		HPModifier.Duration = EGCGModifierDuration::WhilePaired;
+		HPModifier.SourceInstanceID = PilotInstance.InstanceID;
+		HPModifier.TurnCreated = 0; // Permanent while paired
+
+		LinkUnitInstance.ActiveModifiers.Add(HPModifier);
+
+		UE_LOG(LogTemp, Log, TEXT("GCGLinkUnitSubsystem: Added +%d HP from Pilot %s"),
+			PilotData->HP, *PilotData->CardName.ToString());
+	}
+
 	// Link Units can attack on the turn they're deployed when paired
 	Result.bCanAttackThisTurn = true;
 
@@ -125,6 +156,15 @@ FGCGLinkResult UGCGLinkUnitSubsystem::UnpairPilot(
 		Result.ErrorMessage = TEXT("Cards are not paired to each other");
 		return Result;
 	}
+
+	// Rule 3-3-8-1: Remove Pilot's AP and HP modifiers from Link Unit
+	LinkUnitInstance.ActiveModifiers.RemoveAll([&](const FGCGActiveModifier& Mod) {
+		return Mod.SourceInstanceID == PilotInstance.InstanceID &&
+		       Mod.Duration == EGCGModifierDuration::WhilePaired;
+	});
+
+	UE_LOG(LogTemp, Log, TEXT("GCGLinkUnitSubsystem: Removed Pilot modifiers from Link Unit %d"),
+		LinkUnitInstance.InstanceID);
 
 	// Unpair
 	LinkUnitInstance.PairedCardInstanceID = -1;

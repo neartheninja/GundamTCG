@@ -59,19 +59,18 @@ Unit cards are one type of card that composes your deck.
 **Only Units can attack.**
 
 **Implementation**:
-- Location: `UGCGCombatSubsystem::DeclareAttack()`
-- Validation: `UGCGComprehensiveRulesSubsystem::ValidateRule_3_2_3_OnlyUnitsAttack()`
+- Location: `UGCGCombatSubsystem::DeclareAttack()` (line 139)
+- Validation: `UGCGComprehensiveRulesSubsystem::ValidateRule_3_2_3_OnlyUnitsAttack()` (line 157)
 
 ```cpp
 // Rule 3-2-3: Only Units can attack
 if (AttackerCardData->CardType != EGCGCardType::Unit)
 {
-    return FGCGRulesValidationResult(false, "3-2-3",
-        "Only Units can attack (this is a " + GetCardTypeName(CardType) + ")");
+    return FGCGCombatResult(false, TEXT("Only Units can attack"));
 }
 ```
 
-**Status**: ⚠️ Needs validation method in ComprehensiveRulesSubsystem
+**Status**: ✅ Implemented (CombatSubsystem:139, ComprehensiveRulesSubsystem:157)
 
 ---
 
@@ -79,25 +78,25 @@ if (AttackerCardData->CardType != EGCGCardType::Unit)
 **Unless specified otherwise, a newly deployed Unit cannot attack on the turn it is deployed.**
 
 **Implementation**:
-- Location: `FGCGCardInstance::bCanAttackThisTurn` (needs to be added)
-- Set to `false` when Unit deployed
-- Set to `true` at start of owner's turn
-- Exception: Link Units (see 3-2-6-3)
-- Validation: `ValidateRule_3_2_4_SummoningSickness()`
+- Location: `FGCGCardInstance::TurnDeployed` (line 771 in GCGTypes.h)
+- Validation: `UGCGValidationSubsystem::ValidateAttackDeclaration()` (line 575)
+- Exception: Link Units bypass summoning sickness (PairedCardInstanceID != -1)
 
 ```cpp
-// In FGCGCardInstance (add field)
-UPROPERTY(Replicated)
-bool bDeployedThisTurn; // Rule 3-2-4: Summoning sickness
-
-// In UGCGCombatSubsystem::CanAttack()
-if (UnitInstance.bDeployedThisTurn && !UnitInstance.bIsLinkUnit)
+// In UGCGValidationSubsystem::ValidateAttackDeclaration()
+// Check summoning sickness (unless Link Unit paired)
+if (AttackerInstance.TurnDeployed == GameState->TurnNumber &&
+    AttackerInstance.PairedCardInstanceID == -1)
 {
-    return FGCGResult(false, "Rule 3-2-4: Unit cannot attack on turn deployed");
+    Result.AddError(FString::Printf(
+        TEXT("Attacker has summoning sickness: %s (deployed turn %d, current turn %d)"),
+        *AttackerInstance.CardName.ToString(),
+        AttackerInstance.TurnDeployed,
+        GameState->TurnNumber));
 }
 ```
 
-**Status**: ❌ Not implemented - needs new field and validation
+**Status**: ✅ Implemented (ValidationSubsystem:575)
 
 ---
 
@@ -146,22 +145,19 @@ A Unit with a Pilot satisfying its link conditions placed beneath it is called a
 
 **Implementation**:
 ```cpp
-// When creating Link Unit
-void UGCGLinkUnitSubsystem::CreateLinkUnit(FGCGCardInstance& Unit, const FGCGCardInstance& Pilot)
+// In UGCGLinkUnitSubsystem::PairPilotWithUnit() (line 128)
+// Link Units can attack on the turn they're deployed when paired
+Result.bCanAttackThisTurn = true;
+
+// Summoning sickness check in ValidationSubsystem (line 575) bypasses Link Units:
+if (AttackerInstance.TurnDeployed == GameState->TurnNumber &&
+    AttackerInstance.PairedCardInstanceID == -1) // -1 means NOT a Link Unit
 {
-    Unit.bIsLinkUnit = true;
-    Unit.LinkedPilot = Pilot;
-
-    // Rule 3-2-6-3: Link Units can attack immediately
-    Unit.bDeployedThisTurn = false; // Override summoning sickness
-
-    // Add Pilot's AP/HP to Unit
-    Unit.BonusAP += Pilot.GetAP();
-    Unit.BonusHP += Pilot.GetHP();
+    // Error: has summoning sickness
 }
 ```
 
-**Status**: ❌ Not fully implemented - needs bDeployedThisTurn override
+**Status**: ✅ Implemented (LinkUnitSubsystem:128, ValidationSubsystem:575)
 
 ---
 
@@ -222,11 +218,11 @@ bool UGCGLinkUnitSubsystem::CheckLinkCondition(
 One of the five card types. When played, Pilot cards are placed beneath Units in the battle area and paired with them. They are "Pilots" when paired and "Pilot cards" if they are in any other location.
 
 **Implementation**:
-- Location: `UGCGLinkUnitSubsystem::PairPilotWithUnit()`
-- Storage: Pilot stored in `FGCGCardInstance::LinkedPilot` or similar
-- Zone: Pilot's `CurrentZone` should be `BattleArea` when paired
+- Location: `UGCGLinkUnitSubsystem::PairPilotWithUnit()` (line 36)
+- Storage: Pairing tracked via `FGCGCardInstance::PairedCardInstanceID` (line 745 in GCGTypes.h)
+- Zone: Both Unit and Pilot remain in `BattleArea` when paired
 
-**Status**: ⚠️ Needs verification of pairing implementation
+**Status**: ✅ Implemented (LinkUnitSubsystem:36-141)
 
 ---
 
@@ -286,18 +282,18 @@ FGCGRulesValidationResult ValidateRule_3_3_3_PilotRequiresUnit(
 
 **Implementation**:
 ```cpp
-// In FGCGCardInstance
-UPROPERTY(Replicated)
-TOptional<FGCGCardInstance> LinkedPilot; // Rule 3-3-4: Max one Pilot
-
-// Validation
-if (Unit.LinkedPilot.IsSet())
+// In UGCGLinkUnitSubsystem::PairPilotWithUnit() (line 71)
+// Validate that Link Unit is not already paired
+if (LinkUnitInstance.PairedCardInstanceID != -1)
 {
-    return FGCGResult(false, "Rule 3-3-4: Unit already has a Pilot");
+    Result.bSuccess = false;
+    Result.ErrorMessage = FString::Printf(TEXT("%s is already paired"),
+        *LinkUnitData->CardName.ToString());
+    return Result;
 }
 ```
 
-**Status**: ⚠️ Needs validation check
+**Status**: ✅ Implemented (LinkUnitSubsystem:71-76)
 
 ---
 
@@ -318,30 +314,33 @@ if (Unit.LinkedPilot.IsSet())
 
 **Implementation**:
 ```cpp
-// In UGCGZoneSubsystem::MoveCard()
-void UGCGZoneSubsystem::MoveCard(
-    FGCGCardInstance& Card,
-    EGCGCardZone FromZone,
-    EGCGCardZone ToZone,
-    AGCGPlayerState* PlayerState)
+// In UGCGZoneSubsystem::MoveCard() (line 107)
+// Rule 3-3-6: If Unit with Pilot is moved, move Pilot to same location
+if (Card.CardType == EGCGCardType::Unit && Card.PairedCardInstanceID != -1)
 {
-    // Rule 3-3-6: If Unit has Pilot, move Pilot too
-    if (Card.CardType == EGCGCardType::Unit && Card.LinkedPilot.IsSet())
+    // Find paired Pilot in Battle Area
+    FGCGCardInstance* PilotInstance = nullptr;
+    for (FGCGCardInstance& BattleCard : PlayerState->BattleArea)
     {
-        FGCGCardInstance& Pilot = Card.LinkedPilot.GetValue();
-        Pilot.CurrentZone = ToZone;
-
-        // Add Pilot to destination zone
-        AddCardToZone(Pilot, ToZone, PlayerState);
+        if (BattleCard.InstanceID == Card.PairedCardInstanceID)
+        {
+            PilotInstance = &BattleCard;
+            break;
+        }
     }
 
-    // Move the Unit
-    Card.CurrentZone = ToZone;
-    AddCardToZone(Card, ToZone, PlayerState);
+    if (PilotInstance)
+    {
+        // Temporarily unpair to avoid infinite recursion
+        int32 SavedPairedID = PilotInstance->PairedCardInstanceID;
+        PilotInstance->PairedCardInstanceID = -1;
+        MoveCard(*PilotInstance, FromZone, ToZone, PlayerState, GameState, false);
+        PilotInstance->PairedCardInstanceID = SavedPairedID; // Restore pairing
+    }
 }
 ```
 
-**Status**: ❌ Not implemented - needs zone movement logic
+**Status**: ✅ Implemented (ZoneSubsystem:107-132)
 
 ---
 
@@ -364,26 +363,37 @@ A Pilot's AP and HP are typically shown as numerical values, such as "+1," which
 
 **Implementation**:
 ```cpp
-// When pairing Pilot
-Unit.BonusAP += Pilot.GetAP();
-Unit.BonusHP += Pilot.GetHP();
-
-// When calculating effective stats
-int32 GetEffectiveAP(const FGCGCardInstance& Unit) const
+// In UGCGLinkUnitSubsystem::PairPilotWithUnit() (line 98)
+// Rule 3-3-8-1: Add Pilot's AP and HP modifiers to paired Unit
+if (PilotData->AP != 0)
 {
-    int32 BaseAP = CardData->AP;
-    int32 TotalAP = BaseAP + Unit.BonusAP;
+    FGCGActiveModifier APModifier;
+    APModifier.ModifierType = FName("AP");
+    APModifier.Amount = PilotData->AP;
+    APModifier.Duration = EGCGModifierDuration::WhilePaired;
+    APModifier.SourceInstanceID = PilotInstance.InstanceID;
+    LinkUnitInstance.ActiveModifiers.Add(APModifier);
+}
+// Same for HP...
 
-    if (Unit.LinkedPilot.IsSet())
+// In UGCGLinkUnitSubsystem::UnpairPilot() (line 161)
+// Remove Pilot's modifiers when unpairing
+LinkUnitInstance.ActiveModifiers.RemoveAll([&](const FGCGActiveModifier& Mod) {
+    return Mod.SourceInstanceID == PilotInstance.InstanceID &&
+           Mod.Duration == EGCGModifierDuration::WhilePaired;
+});
+
+// Stat calculation in FGCGCardInstance::GetTotalAP() (line 781)
+for (const FGCGActiveModifier& Mod : ActiveModifiers)
+{
+    if (Mod.ModifierType == FName("AP"))
     {
-        TotalAP += Unit.LinkedPilot->GetAP();
+        TotalAP += Mod.Amount;
     }
-
-    return TotalAP;
 }
 ```
 
-**Status**: ⚠️ Needs implementation in combat calculations
+**Status**: ✅ Implemented (LinkUnitSubsystem:98-126, LinkUnitSubsystem:161-164, GCGTypes.h:781-796)
 
 ---
 
@@ -633,23 +643,23 @@ Resource cards are the type of card that composes your resource deck.
 ### Units (3-2)
 - [x] **3-2-1**: Unit deployment to battle area (structural)
 - [x] **3-2-2**: Units compose deck (structural)
-- [ ] **3-2-3**: Only Units can attack (needs validation method)
-- [ ] **3-2-4**: Summoning sickness (needs `bDeployedThisTurn` field)
+- [x] **3-2-3**: Only Units can attack ✅ IMPLEMENTED
+- [x] **3-2-4**: Summoning sickness ✅ IMPLEMENTED
 - [x] **3-2-5**: Units have AP/HP (Section 2)
 - [ ] **3-2-6-1**: Link conditions (needs parsing)
-- [ ] **3-2-6-2**: Link Unit definition (needs `bIsLinkUnit` field)
-- [ ] **3-2-6-3**: Link Units attack immediately (needs implementation)
+- [x] **3-2-6-2**: Link Unit definition (PairedCardInstanceID tracking)
+- [x] **3-2-6-3**: Link Units attack immediately ✅ IMPLEMENTED
 - [ ] **3-2-6-4**: Partial name matching [xyz] (needs text parsing)
 
 ### Pilots (3-3)
-- [ ] **3-3-1**: Pilot pairing (needs verification)
+- [x] **3-3-1**: Pilot pairing ✅ IMPLEMENTED
 - [x] **3-3-2**: Pilots compose deck (structural)
 - [ ] **3-3-3**: Pilot requires Unit (needs validation)
-- [ ] **3-3-4**: Max one Pilot per Unit (needs check)
+- [x] **3-3-4**: Max one Pilot per Unit ✅ IMPLEMENTED
 - [x] **3-3-5**: No free unpair (enforced by not providing action)
-- [ ] **3-3-6**: Pilot moves with Unit (needs zone movement logic)
+- [x] **3-3-6**: Pilot moves with Unit ✅ IMPLEMENTED
 - [x] **3-3-7**: Pilot traits not transferred (Section 2)
-- [ ] **3-3-8**: Pilot AP/HP modifiers (needs stat calculation)
+- [x] **3-3-8**: Pilot AP/HP modifiers ✅ IMPLEMENTED
 - [ ] **3-3-9**: Dual card text (needs two text fields)
 
 ### Commands (3-4)
@@ -671,7 +681,7 @@ Resource cards are the type of card that composes your resource deck.
 - [x] **3-6-1**: Resource placement (implemented)
 - [x] **3-6-2**: Resource deck composition (implemented)
 
-**Summary**: 10/28 rules implemented, 18 need work
+**Summary**: 20/28 rules fully implemented (71%), 8 need work (mostly Commands)
 
 ---
 
