@@ -1302,23 +1302,28 @@ bool AGCGGameMode_1v1::PerformMulligan(int32 PlayerID)
 	UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::PerformMulligan - Player %d performing mulligan (returning %d cards)"),
 		PlayerID, HandSize);
 
-	// Move all cards from hand back to deck
+	// Rule 6-2-1-6-1: Return entire hand to BOTTOM of deck
+	// Note: Deck.Add() adds to the end (bottom) of the array
 	for (FGCGCardInstance& Card : PlayerState->Hand)
 	{
 		Card.CurrentZone = EGCGCardZone::Deck;
-		PlayerState->Deck.Add(Card);
+		PlayerState->Deck.Add(Card); // Adds to bottom
 	}
 
 	// Clear hand
 	PlayerState->Hand.Empty();
 
-	// Shuffle deck
-	ZoneSubsystem->ShuffleDeck(PlayerState);
-	UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::PerformMulligan - Shuffled deck for Player %d"), PlayerID);
+	UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::PerformMulligan - Returned %d cards to bottom of deck"), HandSize);
 
-	// Draw new hand (same number of cards)
+	// Rule 6-2-1-6-1: Draw 5 new cards from TOP of deck
+	// (These will be different cards since we put the hand at the bottom)
 	TArray<FGCGCardInstance> NewHand;
-	int32 CardsDrawn = ZoneSubsystem->DrawTopCards(EGCGCardZone::Deck, PlayerState, HandSize, NewHand);
+	int32 CardsDrawn = ZoneSubsystem->DrawTopCards(EGCGCardZone::Deck, PlayerState, 5, NewHand);
+
+	if (CardsDrawn != 5)
+	{
+		UE_LOG(LogTemp, Error, TEXT("AGCGGameMode_1v1::PerformMulligan - Could only draw %d cards (expected 5)"), CardsDrawn);
+	}
 
 	// Move cards to hand
 	for (FGCGCardInstance& Card : NewHand)
@@ -1327,10 +1332,14 @@ bool AGCGGameMode_1v1::PerformMulligan(int32 PlayerID)
 		PlayerState->Hand.Add(Card);
 	}
 
-	UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::PerformMulligan - Player %d drew new hand (%d cards)"),
-		PlayerID, CardsDrawn);
+	UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::PerformMulligan - Drew new hand (%d cards)"), CardsDrawn);
 
-	return CardsDrawn == HandSize;
+	// Rule 6-2-1-6-1: THEN shuffle deck
+	// (Now the old hand and new cards are all shuffled together)
+	ZoneSubsystem->ShuffleZone(EGCGCardZone::Deck, PlayerState);
+	UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::PerformMulligan - Shuffled deck after mulligan"));
+
+	return CardsDrawn == 5;
 }
 
 // ===== INTERNAL HELPERS =====

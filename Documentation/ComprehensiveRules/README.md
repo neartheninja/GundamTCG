@@ -17,7 +17,7 @@ Each comprehensive rules section has its own markdown file:
 - `Section_02_CardInformation.md` - Card attributes and terminology
 - `Section_03_CardTypes.md` - Unit, Pilot, Command, Base, Resource types
 - `Section_04_GameLocations.md` - Zones and areas
-- `Section_05_Terminology.md` - Essential game terms
+- `Section_05_EssentialGameTerminology.md` - Essential game terms
 - `Section_06_PreparingToPlay.md` - Game setup procedures
 - `Section_07_GameProgression.md` - Turn structure and phases
 - `Section_08_AttacksAndBattles.md` - Combat rules
@@ -33,10 +33,11 @@ Each comprehensive rules section has its own markdown file:
 |---------|--------|---------------------|
 | Section 1 | ✅ Integrated | Rules management in `AGCGGameMode_1v1` |
 | Section 2 | ✅ Integrated | Documentation in `GCGTypes.h`, ⚠️ Breaking change (color enum) |
-| Section 3 | 🔄 In Progress | Validation methods added, needs field additions (10/28 rules implemented) |
+| Section 3 | 🔄 In Progress | Validation methods added, needs field additions (10/28 rules - 36%) |
 | Section 4 | ✅ Mostly Implemented | Zone structure exists, capacity validation added (28/37 rules - 76%) |
-| Section 5 | 🔄 In Progress | Core mechanics implemented (24/42 rules - 57%), needs effect system |
-| Section 6-13 | ⏳ Pending | Will use modular approach (subsystem + docs only) |
+| Section 5 | ✅ Core Complete | Essential mechanics implemented (24/42 rules - 57%), effect system pending |
+| Section 6 | ✅ Mostly Implemented | Deck validation subsystem added, mulligan fixed (15/17 rules - 88%) |
+| Section 7-13 | ⏳ Pending | Will use modular approach (subsystem + docs only) |
 
 ## Modular Integration Approach
 
