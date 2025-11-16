@@ -1,0 +1,78 @@
+# Gundam TCG Comprehensive Rules Documentation
+
+This folder contains modular documentation for the official Gundam Trading Card Game Comprehensive Rules.
+
+## Purpose
+
+To provide a clean separation between rules documentation and code implementation:
+- **Documentation**: Official rules text stored in markdown files
+- **Implementation**: Code references rules by section number (e.g., "See Rule 2-4-2-1")
+- **Validation**: Rules validation logic in `UGCGComprehensiveRulesSubsystem`
+
+## Structure
+
+Each comprehensive rules section has its own markdown file:
+
+- `Section_01_GameOverview.md` - Win/loss conditions, fundamental rules
+- `Section_02_CardInformation.md` - Card attributes and terminology
+- `Section_03_CardTypes.md` - Unit, Pilot, Command, Base, Resource types
+- `Section_04_GameLocations.md` - Zones and areas
+- `Section_05_EssentialGameTerminology.md` - Essential game terms
+- `Section_06_PreparingToPlay.md` - Game setup procedures
+- `Section_07_GameProgression.md` - Turn structure and phases
+- `Section_08_AttacksAndBattles.md` - Combat rules
+- `Section_09_ActionSteps.md` - Player action timing
+- `Section_10_EffectActivation.md` - Effect resolution rules
+- `Section_11_RulesManagement.md` - Rules processing and state-based actions
+- `Section_12_MultiplayerBattle.md` - 2v2 team battle rules
+- `Section_13_Keywords.md` - Keyword abilities and effects
+
+## Integration Status
+
+| Section | Status | Implementation Notes |
+|---------|--------|---------------------|
+| Section 1 | ✅ Integrated | Rules management in `AGCGGameMode_1v1` |
+| Section 2 | ✅ Integrated | Documentation in `GCGTypes.h`, ⚠️ Breaking change (color enum) |
+| Section 3 | ✅ Mostly Implemented | Pilot system + EffectStack complete, dual-mode Commands pending (23/28 rules - 82%) |
+| Section 4 | ✅ Mostly Implemented | Zone structure and validation methods complete (36/37 rules - 97%), effect clearing pending |
+| Section 5 | ✅ Mostly Implemented | Token system, HP recovery, Shield Burst detection complete (34/42 rules - 81%), UI integration pending |
+| Section 6 | ✅ Mostly Implemented | Deck validation subsystem added, mulligan fixed (15/17 rules - 88%) |
+| Section 7 | ✅ Mostly Implemented | Turn/phase system complete (28/30 rules - 93%), Action Step pending |
+| Section 8 | ✅ Mostly Implemented | Combat system complete (24/28 rules - 86%), effect triggers pending |
+| Section 9 | ✅ Core Complete | Priority system implemented (8/8 rules - 100%), UI integration pending |
+| Section 10 | ✅ Mostly Implemented | Effect system comprehensive (29/40 rules - 73%), UI integration pending |
+| Section 11 | ✅ Mostly Implemented | Rules management implemented (10/14 rules - 75%), player choice UI pending |
+| Section 12 | ✅ Mostly Implemented | Battle Royale + Team Battle implemented (17/21 rules - 81%), UI integration pending |
+| Section 13 | ✅ Mostly Implemented | Keyword system comprehensive (19/20 rules - 95%), Burst UI pending |
+
+## Modular Integration Approach
+
+**For future sections (3-13):**
+
+1. **Documentation First**: Add official rules text to appropriate markdown file
+2. **Validation Logic**: Add validation methods to `UGCGComprehensiveRulesSubsystem`
+3. **Minimal Code Changes**: Only modify core types if absolutely necessary
+4. **Comments Reference Rules**: Use rule numbers in comments (e.g., `// Rule 3-2-1: Unit cards...`)
+
+**Avoid:**
+- Modifying core enums in `GCGTypes.h` (breaking changes)
+- Changing existing data structures
+- Duplicating rules text in code comments
+
+**Prefer:**
+- External subsystem validation
+- Rule references by number
+- Centralized documentation
+
+## Breaking Changes Log
+
+### Section 2 Integration (Commit f1e24c6)
+- **Changed**: `EGCGCardColor` enum
+  - Removed: `Black`, `Yellow`
+  - Added: `Purple`
+  - Reason: Match official rules (5 colors: White, Blue, Green, Red, Purple)
+- **Impact**: Existing card data using Black/Yellow colors will need migration
+
+## Reference
+
+All rules documentation is based on the official Gundam Trading Card Game Comprehensive Rules.

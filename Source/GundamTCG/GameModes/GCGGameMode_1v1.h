@@ -120,7 +120,34 @@ public:
 	// ===== GAME FLOW CONTROL =====
 
 	/**
-	 * Check victory conditions for all players
+	 * Comprehensive Rules 1-2-3: Perform Rules Management
+	 * Check defeat conditions and process game state
+	 * Called after any game action that could result in defeat
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Game Flow")
+	void PerformRulesManagement();
+
+	/**
+	 * Comprehensive Rules 1-2-2: Check if a player meets defeat conditions
+	 * 1-2-2-1: Battle damage with no shields
+	 * 1-2-2-2: No cards remaining in deck
+	 * @param PlayerID The player to check
+	 * @return True if player meets defeat conditions
+	 */
+	UFUNCTION(BlueprintPure, Category = "Game Flow")
+	bool CheckDefeatConditions(int32 PlayerID) const;
+
+	/**
+	 * Comprehensive Rules 1-2-4: Process player concession
+	 * Player immediately loses and the game ends
+	 * Concession cannot be forced by card effects (Rule 1-2-5)
+	 * @param PlayerID The player who is conceding
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Game Flow")
+	void ProcessPlayerConcession(int32 PlayerID);
+
+	/**
+	 * Check victory conditions for all players (deprecated - use PerformRulesManagement)
 	 * Called after certain actions (damage dealt, draw attempted)
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Game Flow")
@@ -132,6 +159,42 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Game Flow")
 	void EndGame(int32 WinnerPlayerID);
+
+	// ===== SECTION 11: RULES MANAGEMENT (ZONE LIMITS) =====
+
+	/**
+	 * Rule 11-4-2: Enforce Battle Area limit (max 6 Units)
+	 * If over limit, player chooses Unit to trash
+	 * @param PlayerState The player to check
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Rules Management")
+	void EnforceBattleAreaLimit(AGCGPlayerState* PlayerState);
+
+	/**
+	 * Rule 11-5-2: Enforce Base Section limit (max 1 Base)
+	 * If over limit, player chooses Base to trash
+	 * @param PlayerState The player to check
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Rules Management")
+	void EnforceBaseSectionLimit(AGCGPlayerState* PlayerState);
+
+	/**
+	 * Rule 11-4-2: Request player to choose Unit to remove from Battle Area
+	 * Used when Battle Area exceeds 6 Units
+	 * @param PlayerID The player making the choice
+	 * @return Instance ID of chosen Unit
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Rules Management")
+	int32 RequestChooseUnitToRemove(int32 PlayerID);
+
+	/**
+	 * Rule 11-5-2: Request player to choose Base to remove from Base Section
+	 * Used when Base Section exceeds 1 Base
+	 * @param PlayerID The player making the choice
+	 * @return Instance ID of chosen Base
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Rules Management")
+	int32 RequestChooseBaseToRemove(int32 PlayerID);
 
 	// ===== AUTOMATIC PHASE PROGRESSION =====
 
@@ -180,6 +243,31 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Player Actions")
 	int32 RequestDiscardCards(int32 PlayerID, const TArray<int32>& CardInstanceIDs);
+
+	// ===== SECTION 9: ACTION STEP =====
+
+	/**
+	 * Rule 9-1: Execute Action Step (alternating priority window)
+	 * Called from combat (after Block Step) or End Phase
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Action Step")
+	void ExecuteActionStep();
+
+	/**
+	 * Rule 9-3/9-4: Process player action during Action Step
+	 * @param PlayerID The player performing the action
+	 * @param ActionType The type of action (ActivateAbility or PassPriority)
+	 * @param CardInstanceID The card involved (for ActivateAbility)
+	 * @return True if action was valid and processed
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Action Step")
+	bool ProcessActionStepAction(int32 PlayerID, EGCGPlayerActionType ActionType, int32 CardInstanceID = 0);
+
+	/**
+	 * Rule 9-5: End Action Step (both players passed consecutively)
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Action Step")
+	void EndActionStep();
 
 	/**
 	 * Player requests to declare an attack
@@ -258,6 +346,16 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Setup")
 	void SetupEXResource(int32 PlayerID);
+
+	/**
+	 * FAQ Q10: Perform mulligan for a player
+	 * Shuffles current hand back into deck and draws 5 new cards
+	 * Can only be done once per player at game start
+	 * @param PlayerID The player performing the mulligan
+	 * @return True if mulligan was successful
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Setup")
+	bool PerformMulligan(int32 PlayerID);
 
 protected:
 	// ===== INTERNAL HELPERS =====
