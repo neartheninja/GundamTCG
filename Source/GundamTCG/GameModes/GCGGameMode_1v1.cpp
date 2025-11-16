@@ -456,11 +456,14 @@ void AGCGGameMode_1v1::ExecuteEndPhase()
 
 	UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::ExecuteEndPhase - Executing End Phase"));
 
-	// Action Step: Action timing (Commands, Activate・Action abilities)
+	// Rule 7-4-1: Action Step (Commands, Activate・Action abilities)
 	GCGGameState->CurrentEndPhaseStep = EGCGEndPhaseStep::ActionStep;
-	// TODO: Allow Action timing cards/abilities (Phase 8: Effect System)
+	ExecuteActionStep();
+	// Note: Action Step is async (waits for player input via UI)
+	// EndActionStep() will be called when both players pass
+	// For now, we continue execution immediately (UI integration pending)
 
-	// End Step: "At end of turn" effects trigger
+	// Rule 7-4-2: End Step - "At end of turn" effects trigger
 	GCGGameState->CurrentEndPhaseStep = EGCGEndPhaseStep::EndStep;
 
 	// Trigger EndOfTurn effects (Phase 8)
@@ -1418,4 +1421,155 @@ void AGCGGameMode_1v1::CleanupTurnEffects()
 	// This will remove all "UntilEndOfTurn" modifiers and temporary effects
 
 	UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::CleanupTurnEffects - Cleaning up turn effects"));
+}
+
+// ===== SECTION 9: ACTION STEP =====
+
+void AGCGGameMode_1v1::ExecuteActionStep()
+{
+	AGCGGameState* GCGGameState = GetGCGGameState();
+	if (!GCGGameState)
+	{
+		return;
+	}
+
+	UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::ExecuteActionStep - Starting Action Step"));
+
+	// Rule 9-1: Enter Action Step state
+	GCGGameState->bInActionStep = true;
+
+	// Rule 9-2: Standby player (opponent) gets priority first
+	int32 StandbyPlayerID = GCGGameState->GetStandbyPlayerID();
+	GCGGameState->PriorityPlayerID = StandbyPlayerID;
+	GCGGameState->LastPassedPlayerID = -1; // Reset pass tracking
+
+	UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::ExecuteActionStep - Priority to Standby Player %d (Active Player is %d)"),
+		StandbyPlayerID, GCGGameState->ActivePlayerID);
+
+	// TODO: Trigger UI event to prompt standby player for action
+	// This is where the game would pause and wait for player input
+	// Player can:
+	// 1. Activate a 【Action】 Command card
+	// 2. Activate a 【Activate･Action】 ability
+	// 3. Pass priority
+
+	// For now, we'll continue execution (in a real game, this would be async)
+	// UI will call ProcessActionStepAction() when player makes a choice
+}
+
+bool AGCGGameMode_1v1::ProcessActionStepAction(int32 PlayerID, EGCGPlayerActionType ActionType, int32 CardInstanceID)
+{
+	AGCGGameState* GCGGameState = GetGCGGameState();
+	if (!GCGGameState)
+	{
+		return false;
+	}
+
+	// Validate we're in an Action Step
+	if (!GCGGameState->bInActionStep)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("AGCGGameMode_1v1::ProcessActionStepAction - Not in Action Step"));
+		return false;
+	}
+
+	// Validate it's this player's priority
+	if (PlayerID != GCGGameState->PriorityPlayerID)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("AGCGGameMode_1v1::ProcessActionStepAction - Player %d does not have priority (priority is with %d)"),
+			PlayerID, GCGGameState->PriorityPlayerID);
+		return false;
+	}
+
+	if (ActionType == EGCGPlayerActionType::PassPriority)
+	{
+		UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::ProcessActionStepAction - Player %d passed priority"), PlayerID);
+
+		// Check if this is the second consecutive pass
+		if (GCGGameState->LastPassedPlayerID != -1 && GCGGameState->LastPassedPlayerID != PlayerID)
+		{
+			// Rule 9-5: Both players passed consecutively -> End Action Step
+			UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::ProcessActionStepAction - Both players passed, ending Action Step"));
+			EndActionStep();
+			return true;
+		}
+
+		// First pass or same player passing again
+		GCGGameState->LastPassedPlayerID = PlayerID;
+
+		// Rule 9-3-1 / 9-4-1: Pass priority to other player
+		int32 NextPlayerID = (PlayerID == GCGGameState->ActivePlayerID)
+			? GCGGameState->GetStandbyPlayerID()
+			: GCGGameState->ActivePlayerID;
+
+		GCGGameState->PriorityPlayerID = NextPlayerID;
+
+		UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::ProcessActionStepAction - Priority passed to Player %d"), NextPlayerID);
+
+		// TODO: Trigger UI event to prompt next player for action
+		return true;
+	}
+	else if (ActionType == EGCGPlayerActionType::ActivateAbility)
+	{
+		UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::ProcessActionStepAction - Player %d activating ability on card %d"),
+			PlayerID, CardInstanceID);
+
+		// TODO: Implement ability activation (requires Effect System - Section 10)
+		// For now, just acknowledge the action
+
+		// Rule 9-3 / 9-4: After activation, reset pass counter
+		GCGGameState->LastPassedPlayerID = -1;
+
+		// Priority alternates: return to standby player
+		int32 NextPlayerID = (PlayerID == GCGGameState->ActivePlayerID)
+			? GCGGameState->GetStandbyPlayerID()
+			: GCGGameState->ActivePlayerID;
+
+		GCGGameState->PriorityPlayerID = NextPlayerID;
+
+		UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::ProcessActionStepAction - Ability activated, priority to Player %d"), NextPlayerID);
+
+		// TODO: Trigger UI event to prompt next player for action
+		return true;
+	}
+
+	UE_LOG(LogTemp, Warning, TEXT("AGCGGameMode_1v1::ProcessActionStepAction - Invalid action type"));
+	return false;
+}
+
+void AGCGGameMode_1v1::EndActionStep()
+{
+	AGCGGameState* GCGGameState = GetGCGGameState();
+	if (!GCGGameState)
+	{
+		return;
+	}
+
+	UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::EndActionStep - Action Step ended"));
+
+	// Clear Action Step state
+	GCGGameState->bInActionStep = false;
+	GCGGameState->PriorityPlayerID = -1;
+	GCGGameState->LastPassedPlayerID = -1;
+
+	// Determine where to continue based on context
+	if (GCGGameState->bAttackInProgress)
+	{
+		// Rule 8-4: Combat Action Step -> proceed to Damage Step
+		UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::EndActionStep - Proceeding to Damage Step"));
+
+		UGCGCombatSubsystem* CombatSubsystem = GetGameInstance()->GetSubsystem<UGCGCombatSubsystem>();
+		if (CombatSubsystem)
+		{
+			// Continue combat flow (Damage Step)
+			// TODO: Call ExecuteDamageStep() method (currently handled inline in ResolveAttack)
+		}
+	}
+	else if (GCGGameState->CurrentPhase == EGCGTurnPhase::EndPhase)
+	{
+		// Rule 7-4-2: End Phase Action Step -> proceed to End Step
+		UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::EndActionStep - Proceeding to End Step"));
+
+		// Continue End Phase execution
+		// The ExecuteEndPhase() method will handle the rest
+	}
 }

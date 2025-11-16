@@ -208,6 +208,31 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Player Actions")
 	int32 RequestDiscardCards(int32 PlayerID, const TArray<int32>& CardInstanceIDs);
 
+	// ===== SECTION 9: ACTION STEP =====
+
+	/**
+	 * Rule 9-1: Execute Action Step (alternating priority window)
+	 * Called from combat (after Block Step) or End Phase
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Action Step")
+	void ExecuteActionStep();
+
+	/**
+	 * Rule 9-3/9-4: Process player action during Action Step
+	 * @param PlayerID The player performing the action
+	 * @param ActionType The type of action (ActivateAbility or PassPriority)
+	 * @param CardInstanceID The card involved (for ActivateAbility)
+	 * @return True if action was valid and processed
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Action Step")
+	bool ProcessActionStepAction(int32 PlayerID, EGCGPlayerActionType ActionType, int32 CardInstanceID = 0);
+
+	/**
+	 * Rule 9-5: End Action Step (both players passed consecutively)
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Action Step")
+	void EndActionStep();
+
 	/**
 	 * Player requests to declare an attack
 	 * @param PlayerID The player making the request

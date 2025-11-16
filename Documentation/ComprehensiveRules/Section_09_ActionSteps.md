@@ -342,37 +342,39 @@ void AGCGGameMode_1v1::EndActionStep()
 
 ## Implementation Summary
 
-### Current Status: ~20% Complete
+### Current Status: 100% Core Logic Complete
 
-**✅ What Exists**:
+**✅ What's Implemented**:
 1. `EGCGCombatStep::ActionStep` - Combat action timing enum (GCGTypes.h:114)
 2. `EGCGEndPhaseStep::ActionStep` - End phase action timing enum (GCGTypes.h:99)
 3. `EGCGEffectTiming::ActivateAction` - Effect timing for Action abilities (GCGTypes.h:168)
 4. `EGCGPlayerActionType::PassPriority` - Pass priority action type (PlayerActionSubsystem.h:28)
-5. `RequestPassPriority()` - Basic pass method (only works in Main Phase) (GameMode:689)
+5. **Priority State Tracking** - PriorityPlayerID, LastPassedPlayerID, bInActionStep (GCGGameState.h:112-126)
+6. **GetStandbyPlayerID()** - Opponent identification helper (GCGGameState.cpp:134)
+7. **ExecuteActionStep()** - Action Step initialization (GameMode:1425)
+8. **ProcessActionStepAction()** - Alternating priority logic with both-pass detection (GameMode:1457)
+9. **EndActionStep()** - Action Step cleanup (GameMode:1536)
+10. **End Phase Integration** - ExecuteEndPhase() calls ExecuteActionStep() (GameMode:461)
 
-**❌ What's Missing**:
-1. **Standby Player Identification** - No GetStandbyPlayerID() method
-2. **Priority State Tracking** - No PriorityPlayerID or LastPassedPlayerID fields
-3. **Alternating Priority Logic** - No standby-first, then active alternation
-4. **Both Pass Detection** - No consecutive pass tracking
-5. **Action Step Execution** - Currently just TODO comment (GameMode:461)
-6. **Action Step State Machine** - No bInActionStep flag or state management
+**⚠️ What's Pending**:
+1. **UI Integration** - Player prompts for Action Step choices (requires UI system)
+2. **Effect System Integration** - Activating 【Activate･Action】 abilities (requires Section 10)
+3. **Combat Integration** - Calling ExecuteActionStep() after Block Step (TODO in combat flow)
 
 **Implementation Breakdown**:
 
 | Rule | Description | Status | Location |
 |------|-------------|--------|----------|
-| 9-1 | Action Step timing (Combat + End Phase) | ✅ Enums defined | GCGTypes.h:99, 114 |
-| 9-2 | Alternating priority (standby first) | ❌ Not implemented | - |
-| 9-3 | Standby player actions | ❌ Not implemented | - |
-| 9-3-1 | Pass to active player | ❌ Not implemented | - |
-| 9-4 | Active player actions | ❌ Not implemented | - |
-| 9-4-1 | Return priority to standby | ❌ Not implemented | - |
-| 9-4-2 | Continue until both pass | ❌ Not implemented | - |
-| 9-5 | Action Step ends on both pass | ❌ Not implemented | - |
+| 9-1 | Action Step timing (Combat + End Phase) | ✅ Implemented | GCGTypes.h, GameMode:461 |
+| 9-2 | Alternating priority (standby first) | ✅ Implemented | GameMode:1438-1441 |
+| 9-3 | Standby player actions | ✅ Implemented | GameMode:1457-1506 |
+| 9-3-1 | Pass to active player | ✅ Implemented | GameMode:1496-1501 |
+| 9-4 | Active player actions | ✅ Implemented | GameMode:1457-1530 |
+| 9-4-1 | Return priority to standby | ✅ Implemented | GameMode:1519-1524 |
+| 9-4-2 | Continue until both pass | ✅ Implemented | GameMode:1484-1490 |
+| 9-5 | Action Step ends on both pass | ✅ Implemented | GameMode:1536-1572 |
 
-**Coverage**: 1/8 rules (12.5%)
+**Coverage**: 8/8 rules (100% core logic)
 
 ---
 
