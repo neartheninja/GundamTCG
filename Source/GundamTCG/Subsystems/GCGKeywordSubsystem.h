@@ -5,7 +5,7 @@
 
 #include "CoreMinimal.h"
 #include "Subsystems/GameInstanceSubsystem.h"
-#include "OnePieceTCG_V2/GCGTypes.h"
+#include "GundamTCG/Core/GCGTypes.h"
 #include "GCGKeywordSubsystem.generated.h"
 
 // Forward declarations
