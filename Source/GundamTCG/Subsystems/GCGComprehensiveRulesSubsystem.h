@@ -288,14 +288,105 @@ public:
 		bool bIsEndPhase) const;
 
 	// ===== SECTION 5: ESSENTIAL GAME TERMINOLOGY =====
-	// To be implemented when Section 5 is provided
 
 	/**
-	 * Rule 5-X: [Placeholder for Section 5 rules]
-	 * @return Validation result
+	 * Rule 5-4-2: Cards enter field zones as active
+	 * @param Zone Zone the card is entering
+	 * @return True if card should be set to active
+	 */
+	UFUNCTION(BlueprintPure, Category = "Comprehensive Rules|Section 5")
+	static bool ShouldEnterZoneActive(EGCGCardZone Zone)
+	{
+		// Rule 5-4-2: Cards entering these zones are set active
+		return Zone == EGCGCardZone::BattleArea ||
+		       Zone == EGCGCardZone::ResourceArea ||
+		       Zone == EGCGCardZone::BaseSection;
+	}
+
+	/**
+	 * Rule 5-5-5: Check if damage should be dealt (zero damage is not dealt)
+	 * @param Damage Amount of damage
+	 * @return True if damage should be dealt
+	 */
+	UFUNCTION(BlueprintPure, Category = "Comprehensive Rules|Section 5")
+	static bool ShouldDealDamage(int32 Damage)
+	{
+		// Rule 5-5-5: Damage is not dealt when amount would be zero
+		return Damage > 0;
+	}
+
+	/**
+	 * Rule 5-6: Recover HP (remove damage counters)
+	 * @param Card Card to heal
+	 * @param RecoveryAmount Amount of HP to recover
+	 * @return Actual amount recovered
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Comprehensive Rules|Section 5")
-	FGCGRulesValidationResult ValidateSection5_Placeholder() const;
+	int32 RecoverHP(UPARAM(ref) FGCGCardInstance& Card, int32 RecoveryAmount) const;
+
+	/**
+	 * Rule 5-17-2-3: Check if card is colorless (tokens are colorless)
+	 * @param Card Card to check
+	 * @return True if colorless
+	 */
+	UFUNCTION(BlueprintPure, Category = "Comprehensive Rules|Section 5")
+	bool IsCardColorless(const FGCGCardInstance& Card) const;
+
+	/**
+	 * Rule 5-17-2-4: Get card cost (tokens have 0 cost)
+	 * @param Card Card to check
+	 * @return Effective cost
+	 */
+	UFUNCTION(BlueprintPure, Category = "Comprehensive Rules|Section 5")
+	int32 GetEffectiveCardCost(const FGCGCardInstance& Card) const;
+
+	/**
+	 * Rule 5-17-2-4: Get card level (tokens have 0 level)
+	 * @param Card Card to check
+	 * @return Effective level
+	 */
+	UFUNCTION(BlueprintPure, Category = "Comprehensive Rules|Section 5")
+	int32 GetEffectiveCardLevel(const FGCGCardInstance& Card) const;
+
+	/**
+	 * Rule 5-17-2-5: Check if token should be removed when moving to zone
+	 * @param Card Token card
+	 * @param ToZone Zone being moved to
+	 * @return True if token should be removed from game
+	 */
+	UFUNCTION(BlueprintPure, Category = "Comprehensive Rules|Section 5")
+	static bool ShouldRemoveToken(const FGCGCardInstance& Card, EGCGCardZone ToZone)
+	{
+		// Rule 5-17-2-5: Tokens removed when leaving field zones
+		if (!Card.bIsToken)
+		{
+			return false;
+		}
+
+		bool bIsFieldZone = (ToZone == EGCGCardZone::BattleArea ||
+		                     ToZone == EGCGCardZone::ResourceArea ||
+		                     ToZone == EGCGCardZone::ShieldStack ||
+		                     ToZone == EGCGCardZone::BaseSection);
+
+		return !bIsFieldZone; // Remove if not going to field
+	}
+
+	/**
+	 * Rule 5-17-3-1: Create EX Base token (0 AP / 3 HP)
+	 * @param OwnerPlayerID Player who owns this token
+	 * @return EX Base token instance
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Comprehensive Rules|Section 5")
+	FGCGCardInstance CreateEXBaseToken(int32 OwnerPlayerID) const;
+
+	/**
+	 * Rule 5-19-1: Check if trait matches condition with "/" (or) operator
+	 * @param Condition Condition string (e.g., "Zeon/Neo Zeon")
+	 * @param CardTraits Card's traits
+	 * @return True if any trait matches
+	 */
+	UFUNCTION(BlueprintPure, Category = "Comprehensive Rules|Section 5")
+	bool MatchesTraitCondition(const FString& Condition, const TArray<FName>& CardTraits) const;
 
 	// ===== SECTION 6: PREPARING TO PLAY =====
 	// To be implemented when Section 6 is provided

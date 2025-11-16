@@ -11,6 +11,7 @@
 #include "GundamTCG/Subsystems/GCGEffectSubsystem.h"
 #include "GundamTCG/Subsystems/GCGLinkUnitSubsystem.h"
 #include "GundamTCG/Subsystems/GCGCardDatabase.h"
+#include "GundamTCG/Subsystems/GCGComprehensiveRulesSubsystem.h"
 #include "TimerManager.h"
 #include "Engine/World.h"
 
@@ -1232,16 +1233,22 @@ void AGCGGameMode_1v1::SetupEXBase(int32 PlayerID)
 		return;
 	}
 
-	// Create EX Base token
-	FGCGCardInstance EXBaseToken = CreateTokenInstance(FName("EXBase"), PlayerID);
-	EXBaseToken.CurrentZone = EGCGCardZone::BaseSection;
-	EXBaseToken.bIsActive = true;
+	// Get comprehensive rules subsystem for official token creation
+	UGCGComprehensiveRulesSubsystem* RulesSubsystem = GetGameInstance()->GetSubsystem<UGCGComprehensiveRulesSubsystem>();
+	if (!RulesSubsystem)
+	{
+		UE_LOG(LogTemp, Error, TEXT("AGCGGameMode_1v1::SetupEXBase - Comprehensive rules subsystem not found"));
+		return;
+	}
+
+	// Rule 5-17-3-1: Create EX Base token (0 AP / 3 HP)
+	FGCGCardInstance EXBaseToken = RulesSubsystem->CreateEXBaseToken(PlayerID);
 
 	// Place EX Base in Base section
 	PlayerState->BaseSection.Add(EXBaseToken);
 
-	UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::SetupEXBase - Created EX Base token for Player %d (ID: %d)"),
-		PlayerID, EXBaseToken.InstanceID);
+	UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::SetupEXBase - Created EX Base token for Player %d (ID: %d, AP: %d, HP: %d)"),
+		PlayerID, EXBaseToken.InstanceID, EXBaseToken.AP, EXBaseToken.HP);
 }
 
 void AGCGGameMode_1v1::SetupEXResource(int32 PlayerID)

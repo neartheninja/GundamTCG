@@ -463,6 +463,9 @@ int32 UGCGCombatSubsystem::BreakShields(int32 Count, AGCGPlayerState* DefendingP
 	int32 ShieldsBroken = 0;
 	int32 ShieldsToBreak = FMath::Min(Count, DefendingPlayer->GetShieldCount());
 
+	// Get card database for checking Burst keyword
+	UGCGCardDatabase* CardDatabase = GetGameInstance()->GetSubsystem<UGCGCardDatabase>();
+
 	for (int32 i = 0; i < ShieldsToBreak; ++i)
 	{
 		if (DefendingPlayer->ShieldStack.Num() > 0)
@@ -471,16 +474,46 @@ int32 UGCGCombatSubsystem::BreakShields(int32 Count, AGCGPlayerState* DefendingP
 			FGCGCardInstance ShieldCard = DefendingPlayer->ShieldStack[0];
 			DefendingPlayer->ShieldStack.RemoveAt(0);
 
+			// Rule 5-10-3: Reveal shield before placing in trash
+			UE_LOG(LogTemp, Log, TEXT("UGCGCombatSubsystem::BreakShields - Shield revealed: %s (ID: %d)"),
+				*ShieldCard.CardName.ToString(), ShieldCard.InstanceID);
+
+			// Rule 5-10-3: Check for Burst keyword
+			bool bHasBurst = false;
+			if (CardDatabase)
+			{
+				const FGCGCardData* CardData = CardDatabase->GetCardData(ShieldCard.CardNumber);
+				if (CardData && CardData->Keywords.Contains(EGCGKeyword::Burst))
+				{
+					bHasBurst = true;
+
+					// Rule 5-10-3: Player decides whether to activate Burst
+					// TODO: Implement UI prompt for Burst activation (requires Effect System)
+					// For now, we log that Burst is available
+					UE_LOG(LogTemp, Warning, TEXT("UGCGCombatSubsystem::BreakShields - Shield has 【Burst】! Player %d should be prompted to activate (not yet implemented)"),
+						DefendingPlayer->GetPlayerID());
+
+					// TODO: If player chooses to activate:
+					// 1. Trigger Burst effect (UGCGEffectSubsystem::TriggerBurstEffect)
+					// 2. Wait for effect resolution
+					// 3. Then move to trash
+
+					// TEMPORARY: Auto-log for testing
+					// In full implementation, this would pause and wait for player choice
+				}
+			}
+
 			// Move shield to trash
 			ShieldCard.CurrentZone = EGCGCardZone::Trash;
 			DefendingPlayer->Trash.Add(ShieldCard);
 
 			ShieldsBroken++;
 
-			UE_LOG(LogTemp, Log, TEXT("UGCGCombatSubsystem::BreakShields - Broke shield: %s (ID: %d)"),
-				*ShieldCard.CardName.ToString(), ShieldCard.InstanceID);
-
-			// TODO: Check for Burst keyword (Phase 7)
+			if (bHasBurst)
+			{
+				UE_LOG(LogTemp, Log, TEXT("UGCGCombatSubsystem::BreakShields - Shield with Burst moved to trash: %s"),
+					*ShieldCard.CardName.ToString());
+			}
 		}
 	}
 

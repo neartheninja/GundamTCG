@@ -487,13 +487,170 @@ FGCGRulesValidationResult UGCGComprehensiveRulesSubsystem::ValidateRule_4_8_4_Ha
 	return FGCGRulesValidationResult(true, TEXT("4-8-4"));
 }
 
-// ===== PLACEHOLDER METHODS FOR SECTIONS 5-13 =====
-// These will be implemented when comprehensive rules sections are provided
+// ===== SECTION 5: ESSENTIAL GAME TERMINOLOGY =====
 
-FGCGRulesValidationResult UGCGComprehensiveRulesSubsystem::ValidateSection5_Placeholder() const
+int32 UGCGComprehensiveRulesSubsystem::RecoverHP(FGCGCardInstance& Card, int32 RecoveryAmount) const
 {
-	return FGCGRulesValidationResult(true, TEXT("5-X"), TEXT("Section 5 not yet implemented"));
+	// Rule 5-6-3: Undamaged cards cannot recover HP
+	if (Card.CurrentDamage == 0)
+	{
+		UE_LOG(LogTemp, Verbose, TEXT("RecoverHP - Card has no damage, cannot recover"));
+		return 0;
+	}
+
+	// Rule 5-6-1: Remove damage counters
+	int32 ActualRecovery = FMath::Min(RecoveryAmount, Card.CurrentDamage);
+
+	// Rule 5-6-2: Cannot exceed max HP (remove all counters at most)
+	Card.CurrentDamage -= ActualRecovery;
+
+	UE_LOG(LogTemp, Log, TEXT("RecoverHP - Recovered %d HP (requested %d, current damage now %d)"),
+		ActualRecovery, RecoveryAmount, Card.CurrentDamage);
+
+	return ActualRecovery;
 }
+
+bool UGCGComprehensiveRulesSubsystem::IsCardColorless(const FGCGCardInstance& Card) const
+{
+	// Rule 5-17-2-3: Tokens are treated as having no color
+	if (Card.bIsToken)
+	{
+		return true;
+	}
+
+	// Check card data for color
+	UGCGCardDatabase* CardDB = GetCardDatabase();
+	if (!CardDB)
+	{
+		return true; // Default to colorless if can't access database
+	}
+
+	const FGCGCardData* CardData = CardDB->GetCardData(Card.CardNumber);
+	if (!CardData || CardData->Color.Num() == 0)
+	{
+		return true;
+	}
+
+	// Check if all colors are Colorless
+	for (const EGCGCardColor& Color : CardData->Color)
+	{
+		if (Color != EGCGCardColor::Colorless)
+		{
+			return false;
+		}
+	}
+
+	return true;
+}
+
+int32 UGCGComprehensiveRulesSubsystem::GetEffectiveCardCost(const FGCGCardInstance& Card) const
+{
+	// Rule 5-17-2-4: Token cost is 0
+	if (Card.bIsToken)
+	{
+		return 0;
+	}
+
+	UGCGCardDatabase* CardDB = GetCardDatabase();
+	if (!CardDB)
+	{
+		return 0;
+	}
+
+	const FGCGCardData* CardData = CardDB->GetCardData(Card.CardNumber);
+	if (!CardData)
+	{
+		return 0;
+	}
+
+	return CardData->Cost;
+}
+
+int32 UGCGComprehensiveRulesSubsystem::GetEffectiveCardLevel(const FGCGCardInstance& Card) const
+{
+	// Rule 5-17-2-4: Token Lv is 0
+	if (Card.bIsToken)
+	{
+		return 0;
+	}
+
+	UGCGCardDatabase* CardDB = GetCardDatabase();
+	if (!CardDB)
+	{
+		return 0;
+	}
+
+	const FGCGCardData* CardData = CardDB->GetCardData(Card.CardNumber);
+	if (!CardData)
+	{
+		return 0;
+	}
+
+	return CardData->Level;
+}
+
+FGCGCardInstance UGCGComprehensiveRulesSubsystem::CreateEXBaseToken(int32 OwnerPlayerID) const
+{
+	// Rule 5-17-3-1: EX Base token (0 AP / 3 HP)
+	FGCGCardInstance EXBase;
+
+	EXBase.bIsToken = true;
+	EXBase.TokenType = FName("EXBase");
+	EXBase.CardNumber = FName("TOKEN_EXBase");
+	EXBase.OwnerPlayerID = OwnerPlayerID;
+	EXBase.CurrentZone = EGCGCardZone::BaseSection;
+	EXBase.bIsActive = true;
+	EXBase.CurrentDamage = 0;
+
+	// Token stats stored in instance for tokens
+	// EX Base: 0 AP, 3 HP (retrieved from token data when needed)
+
+	UE_LOG(LogTemp, Log, TEXT("CreateEXBaseToken - Created EX Base for Player %d (0 AP / 3 HP)"),
+		OwnerPlayerID);
+
+	return EXBase;
+}
+
+bool UGCGComprehensiveRulesSubsystem::MatchesTraitCondition(const FString& Condition, const TArray<FName>& CardTraits) const
+{
+	// Rule 5-19-1: "/" means "or"
+
+	if (Condition.IsEmpty())
+	{
+		return true; // Empty condition matches everything
+	}
+
+	// Check for "/" operator
+	if (Condition.Contains(TEXT("/")))
+	{
+		TArray<FString> Options;
+		Condition.ParseIntoArray(Options, TEXT("/"));
+
+		// Check if card has ANY of the traits (OR logic)
+		for (const FString& Option : Options)
+		{
+			FString TrimmedOption = Option.TrimStartAndEnd();
+			FName TraitName(*TrimmedOption);
+
+			if (CardTraits.Contains(TraitName))
+			{
+				UE_LOG(LogTemp, Verbose, TEXT("MatchesTraitCondition - Matched trait '%s' from condition '%s'"),
+					*TrimmedOption, *Condition);
+				return true;
+			}
+		}
+
+		UE_LOG(LogTemp, Verbose, TEXT("MatchesTraitCondition - No traits matched condition '%s'"), *Condition);
+		return false;
+	}
+
+	// Single trait check
+	FName TraitName(*Condition.TrimStartAndEnd());
+	return CardTraits.Contains(TraitName);
+}
+
+// ===== PLACEHOLDER METHODS FOR SECTIONS 6-13 =====
+// These will be implemented when comprehensive rules sections are provided
 
 FGCGRulesValidationResult UGCGComprehensiveRulesSubsystem::ValidateSection6_Placeholder() const
 {

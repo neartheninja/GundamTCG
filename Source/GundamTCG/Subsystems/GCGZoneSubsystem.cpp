@@ -4,6 +4,7 @@
 #include "GCGZoneSubsystem.h"
 #include "GundamTCG/PlayerState/GCGPlayerState.h"
 #include "GundamTCG/GameState/GCGGameState.h"
+#include "GundamTCG/Subsystems/GCGComprehensiveRulesSubsystem.h"
 
 // ===== SUBSYSTEM LIFECYCLE =====
 
@@ -38,6 +39,28 @@ bool UGCGZoneSubsystem::MoveCard(FGCGCardInstance& Card, EGCGCardZone FromZone, 
 		UE_LOG(LogTemp, Warning, TEXT("UGCGZoneSubsystem::MoveCard - Invalid zone transition from %s to %s"),
 			*GetZoneName(FromZone), *GetZoneName(ToZone));
 		return false;
+	}
+
+	// Rule 5-17-2-5: Tokens leaving field zones are removed from the game
+	EGCGCardZone OriginalToZone = ToZone;
+	if (Card.bIsToken)
+	{
+		// Check if leaving a field zone
+		bool bLeavingFieldZone = (FromZone == EGCGCardZone::BattleArea ||
+		                          FromZone == EGCGCardZone::ResourceArea ||
+		                          FromZone == EGCGCardZone::ShieldStack ||
+		                          FromZone == EGCGCardZone::BaseSection);
+
+		if (bLeavingFieldZone)
+		{
+			UGCGComprehensiveRulesSubsystem* RulesSubsystem = GetGameInstance()->GetSubsystem<UGCGComprehensiveRulesSubsystem>();
+			if (RulesSubsystem && RulesSubsystem->ShouldRemoveToken(Card, ToZone))
+			{
+				ToZone = EGCGCardZone::Removal;
+				UE_LOG(LogTemp, Log, TEXT("UGCGZoneSubsystem::MoveCard - Token %s redirected to Removal zone (Rule 5-17-2-5, was going to %s)"),
+					*Card.CardName.ToString(), *GetZoneName(OriginalToZone));
+			}
+		}
 	}
 
 	// Check if destination zone can accept this card
@@ -610,15 +633,31 @@ bool UGCGZoneSubsystem::ValidateZoneTransition(EGCGCardZone FromZone, EGCGCardZo
 
 void UGCGZoneSubsystem::ApplyZoneEntryRules(FGCGCardInstance& Card, EGCGCardZone Zone)
 {
+	// Get comprehensive rules subsystem for rule checks
+	UGCGComprehensiveRulesSubsystem* RulesSubsystem = GetGameInstance()->GetSubsystem<UGCGComprehensiveRulesSubsystem>();
+
 	switch (Zone)
 	{
 	case EGCGCardZone::BattleArea:
-		// Units enter battle area rested (unless effect says otherwise)
+		// Rule 5-4-2: Cards enter field zones as active by default
+		// However, Units played from hand enter rested (summoning sickness)
+		// Effects can override this
+		// For now, default to rested for Units (most common case)
 		Card.bIsActive = false;
 		break;
 
 	case EGCGCardZone::ResourceArea:
-		// Resources enter active
+		// Rule 5-4-2: Resources enter active
+		Card.bIsActive = true;
+		break;
+
+	case EGCGCardZone::BaseSection:
+		// Rule 5-4-2: Bases enter active
+		Card.bIsActive = true;
+		break;
+
+	case EGCGCardZone::ShieldStack:
+		// Rule 5-4-2: Cards in shield stack enter active
 		Card.bIsActive = true;
 		break;
 

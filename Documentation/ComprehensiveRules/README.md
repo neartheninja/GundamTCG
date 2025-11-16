@@ -35,7 +35,8 @@ Each comprehensive rules section has its own markdown file:
 | Section 2 | ✅ Integrated | Documentation in `GCGTypes.h`, ⚠️ Breaking change (color enum) |
 | Section 3 | 🔄 In Progress | Validation methods added, needs field additions (10/28 rules implemented) |
 | Section 4 | ✅ Mostly Implemented | Zone structure exists, capacity validation added (28/37 rules - 76%) |
-| Section 5-13 | ⏳ Pending | Will use modular approach (subsystem + docs only) |
+| Section 5 | 🔄 In Progress | Core mechanics implemented (24/42 rules - 57%), needs effect system |
+| Section 6-13 | ⏳ Pending | Will use modular approach (subsystem + docs only) |
 
 ## Modular Integration Approach
 
