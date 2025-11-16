@@ -42,7 +42,7 @@ Each comprehensive rules section has its own markdown file:
 | Section 9 | ✅ Core Complete | Priority system implemented (8/8 rules - 100%), UI integration pending |
 | Section 10 | ✅ Mostly Implemented | Effect system comprehensive (29/40 rules - 73%), UI integration pending |
 | Section 11 | ✅ Mostly Implemented | Rules management implemented (11/14 rules - 65%), enforcement UI pending |
-| Section 12 | 🔄 In Progress | Team Battle implemented (9/21 rules - 60%), Battle Royale not started |
+| Section 12 | ✅ Mostly Implemented | Battle Royale + Team Battle implemented (17/21 rules - 81%), UI integration pending |
 | Section 13 | ✅ Mostly Implemented | Keyword system comprehensive (19/20 rules - 95%), Burst UI pending |
 
 ## Modular Integration Approach

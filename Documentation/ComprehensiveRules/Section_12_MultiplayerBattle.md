@@ -14,7 +14,7 @@
 - **Team Battle**: 2v2 (4 players, 2 teams)
 
 **Implementation Status**:
-- Battle Royale: ❌ Not implemented
+- Battle Royale: ✅ Fully implemented (GCGGameMode_BattleRoyale.cpp - ~600 lines)
 - Team Battle (2v2): ✅ Fully implemented (~17KB of code)
 
 ---
@@ -25,7 +25,7 @@
 
 **Implementation**:
 ```cpp
-// Team Battle Mode exists
+// Team Battle Mode
 class AGCGGameMode_2v2 : public AGCGGameMode_1v1
 {
     // 2v2 Team Battle implementation
@@ -34,13 +34,18 @@ class AGCGGameMode_2v2 : public AGCGGameMode_1v1
     // Team-wide Unit limits
 };
 
-// Battle Royale Mode does NOT exist yet
-// Would need: AGCGGameMode_BattleRoyale
+// Battle Royale Mode
+class AGCGGameMode_BattleRoyale : public AGCGGameMode_1v1
+{
+    // 3+ players free-for-all
+    // Clockwise/counterclockwise turn order
+    // Winner-takes-all or last-player-standing
+};
 ```
 
 **Status**:
 - Team Battle (12-3): ✅ Implemented (GameMode_2v2.cpp - 17KB)
-- Battle Royale (12-2): ❌ Not implemented
+- Battle Royale (12-2): ✅ Implemented (GameMode_BattleRoyale.cpp - ~600 lines)
 
 ---
 
@@ -50,7 +55,14 @@ class AGCGGameMode_2v2 : public AGCGGameMode_1v1
 
 **All players use a method such as rock paper scissors to decide which of them will go first. Player One then chooses either clockwise or counterclockwise play. After that, when the active player's turn ends, the turn moves to the next player either clockwise or counterclockwise from them depending on the direction first chosen.**
 
-**Status**: ❌ Not implemented (no Battle Royale mode)
+**Implementation**:
+- Location: `GCGGameMode_BattleRoyale.cpp:174-238`
+- `StartNewTurn()` - Advances to next player in chosen direction
+- `GetNextPlayerID()` - Calculates next player based on TurnDirection
+- `GetPreviousPlayerID()` - Calculates previous player
+- `SetTurnDirection()` - Player One chooses clockwise or counterclockwise
+
+**Status**: ✅ **Fully Implemented**
 
 ---
 
@@ -58,7 +70,13 @@ class AGCGGameMode_2v2 : public AGCGGameMode_1v1
 
 **All players except Player One place EX Resources while preparing to play.**
 
-**Status**: ❌ Not implemented
+**Implementation**:
+- Location: `GCGGameMode_BattleRoyale.cpp:78-117`
+- `SetupBattleRoyaleEXResources()` - Places 1 EX Resource for each player except Player 0
+- Player One (ID 0) skipped
+- All other players get 1 EX Resource token each
+
+**Status**: ✅ **Fully Implemented**
 
 ---
 
@@ -66,7 +84,13 @@ class AGCGGameMode_2v2 : public AGCGGameMode_1v1
 
 **The redrawing of hands is performed in order starting with Player One.**
 
-**Status**: ❌ Not implemented
+**Implementation**:
+- Location: `GCGGameMode_BattleRoyale.cpp:119-138`
+- `PerformOrderedMulligan()` - Processes mulligan for each player in order
+- Iterates ActivePlayerIDs (Player 0, 1, 2, ...)
+- ⚠️ **UI Pending**: Auto-skips mulligan for now, needs UI integration
+
+**Status**: ✅ **Core Implemented** (UI pending)
 
 ---
 
@@ -74,7 +98,13 @@ class AGCGGameMode_2v2 : public AGCGGameMode_1v1
 
 **If players are simultaneously required to perform some action, such as resolving effects, the active player does so first, followed by the next player in order, and this continues one player at a time until all of them have finished completing the action.**
 
-**Status**: ❌ Not implemented
+**Implementation**:
+- Location: `GCGGameMode_BattleRoyale.cpp:338-367`
+- `GetSimultaneousActionOrder()` - Returns player IDs in resolution order
+- Active player first, then next in turn order
+- Used for simultaneous effect resolution
+
+**Status**: ✅ **Fully Implemented**
 
 ---
 
@@ -86,7 +116,13 @@ class AGCGGameMode_2v2 : public AGCGGameMode_1v1
 
 **In winner-takes-all rules, if any player takes battle damage from a Unit when they have no cards in their shield area, only the player dealing battle damage to them wins. A player whose deck has no cards remaining during a game is removed from the game at that point, together with all of their cards and effects.**
 
-**Status**: ❌ Not implemented
+**Implementation**:
+- Location: `GCGGameMode_BattleRoyale.cpp:264-280`
+- `ProcessWinnerTakesAllVictory()` - Attacking player wins immediately
+- Removes defeated player, sets game as ended
+- VictoryMode enum: EGCGBattleRoyaleVictoryMode::WinnerTakesAll
+
+**Status**: ✅ **Fully Implemented**
 
 ---
 
@@ -94,7 +130,14 @@ class AGCGGameMode_2v2 : public AGCGGameMode_1v1
 
 **In last-player-standing rules, the last player to remain undefeated wins. The same as in two player games, when a player receives battle damage or has no cards in their deck, all of their cards and effects are removed from the game at that point.**
 
-**Status**: ❌ Not implemented
+**Implementation**:
+- Location: `GCGGameMode_BattleRoyale.cpp:282-303`
+- `ProcessLastPlayerStandingVictory()` - Checks if only one player remains
+- Removes defeated players until one remains
+- VictoryMode enum: EGCGBattleRoyaleVictoryMode::LastPlayerStanding
+- `RemovePlayerFromGame()` (line 305-325) - Removes player and their cards
+
+**Status**: ✅ **Fully Implemented**
 
 ---
 
@@ -102,7 +145,13 @@ class AGCGGameMode_2v2 : public AGCGGameMode_1v1
 
 **If an effect or such indicates "enemy" or "opponent," it refers to any and all of the other players.**
 
-**Status**: ❌ Not implemented (no Battle Royale mode)
+**Implementation**:
+- Location: `GCGGameMode_BattleRoyale.cpp:501-533`
+- `GetEnemyPlayers()` - Returns all other active players
+- `IsEnemyPlayer()` - Checks if two players are enemies (all vs all)
+- Used by effect system to determine valid targets
+
+**Status**: ✅ **Fully Implemented**
 
 ---
 
@@ -110,7 +159,13 @@ class AGCGGameMode_2v2 : public AGCGGameMode_1v1
 
 **If you attack with a Unit, you can attack any other player's rested Unit or any other player.**
 
-**Status**: ❌ Not implemented (would need attack target selection UI)
+**Implementation**:
+- Location: `GCGGameMode_BattleRoyale.cpp:479-499`
+- `GetValidAttackTargets()` - Returns all other active players
+- Can attack any player except yourself
+- ⚠️ **UI Pending**: Attack target selection UI needed
+
+**Status**: ✅ **Core Implemented** (UI pending)
 
 ---
 
@@ -118,7 +173,15 @@ class AGCGGameMode_2v2 : public AGCGGameMode_1v1
 
 **Action steps are performed in order starting with the next player after the active player. They end when all players have chosen to pass.**
 
-**Status**: ❌ Not implemented (no Battle Royale mode)
+**Implementation**:
+- Location: `GCGGameMode_BattleRoyale.cpp:369-477`
+- `ExecuteActionStep()` - Starts Action Step with next player after active
+- `ProcessActionStepAction()` - Handles actions in sequence
+- `HaveAllPlayersPassedActionStep()` - Checks if all players passed
+- Pass tracking: PlayersWhoPassedActionStep array
+- Resets when any player takes action
+
+**Status**: ✅ **Fully Implemented**
 
 ---
 
