@@ -420,14 +420,16 @@ FGCGKeywordResult UGCGKeywordSubsystem::ProcessSuppression(const FGCGCardInstanc
 	}
 	else
 	{
-		// Break ALL shields simultaneously
-		int32 ShieldsBroken = BreakShields(ShieldCount, DefendingPlayer);
+		// Rule 13-1-7-1: Suppression deals damage to the first TWO Shields simultaneously
+		// Rule 13-1-7-3: When only one shield, damage only dealt to that one Shield
+		int32 ShieldsToBreak = FMath::Min(2, ShieldCount);
+		int32 ShieldsBroken = BreakShields(ShieldsToBreak, DefendingPlayer);
 
 		Result.bSuccess = true;
 		Result.ShieldsBroken = ShieldsBroken;
-		Result.Message = FText::FromString(FString::Printf(TEXT("Suppression: Destroyed all %d shields!"), ShieldsBroken));
+		Result.Message = FText::FromString(FString::Printf(TEXT("Suppression: Destroyed %d shield(s)!"), ShieldsBroken));
 
-		LogKeyword(TEXT("Suppression"), FString::Printf(TEXT("[%s] destroyed all %d shields simultaneously"),
+		LogKeyword(TEXT("Suppression"), FString::Printf(TEXT("[%s] destroyed %d shield(s) simultaneously (Suppression)"),
 			*Attacker.CardName.ToString(), ShieldsBroken));
 	}
 

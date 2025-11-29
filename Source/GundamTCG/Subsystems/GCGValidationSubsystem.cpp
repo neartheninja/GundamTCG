@@ -397,8 +397,26 @@ FGCGValidationResult UGCGValidationSubsystem::ValidateDeckList(const FGCGDeckLis
 			DeckList.ResourceDeck.Num()));
 	}
 
+	// FAQ Q2: Deck must have 1-2 colors maximum (not counting Colorless)
+	TSet<EGCGCardColor> DeckColorsSet;
+	for (const EGCGCardColor& Color : DeckList.DeckColors)
+	{
+		if (Color != EGCGCardColor::Colorless)
+		{
+			DeckColorsSet.Add(Color);
+		}
+	}
+
+	if (DeckColorsSet.Num() > 2)
+	{
+		Result.AddError(FString::Printf(TEXT("Deck has too many colors: %d (max 2 colors, not counting Colorless)"),
+			DeckColorsSet.Num()));
+	}
+
 	// Check for max 4 copies of each card in Main Deck
 	TMap<FName, int32> CardCounts;
+	TSet<EGCGCardColor> ActualMainDeckColors;
+
 	for (const FName& CardNumber : DeckList.MainDeck)
 	{
 		int32& Count = CardCounts.FindOrAdd(CardNumber);
@@ -409,9 +427,33 @@ FGCGValidationResult UGCGValidationSubsystem::ValidateDeckList(const FGCGDeckLis
 			Result.AddError(FString::Printf(TEXT("Too many copies of card %s: %d (max 4)"),
 				*CardNumber.ToString(), Count));
 		}
+
+		// FAQ Q2: Validate card colors match deck colors
+		if (CardDatabase)
+		{
+			const FGCGCardData* CardData = CardDatabase->GetCardData(CardNumber);
+			if (CardData)
+			{
+				// Add all card colors (except Colorless) to actual deck colors
+				for (const EGCGCardColor& Color : CardData->Colors)
+				{
+					if (Color != EGCGCardColor::Colorless)
+					{
+						ActualMainDeckColors.Add(Color);
+					}
+				}
+			}
+		}
 	}
 
-	// Check Resource Deck (can have up to 4 copies)
+	// Validate actual colors in Main Deck match declared deck colors
+	if (ActualMainDeckColors.Num() > 2)
+	{
+		Result.AddError(FString::Printf(TEXT("Main Deck contains cards with too many colors: %d (max 2 colors)"),
+			ActualMainDeckColors.Num()));
+	}
+
+	// FAQ Q6: Resource Deck must only contain Resource cards
 	TMap<FName, int32> ResourceCounts;
 	for (const FName& CardNumber : DeckList.ResourceDeck)
 	{
@@ -422,6 +464,23 @@ FGCGValidationResult UGCGValidationSubsystem::ValidateDeckList(const FGCGDeckLis
 		{
 			Result.AddError(FString::Printf(TEXT("Too many copies of Resource %s: %d (max 4)"),
 				*CardNumber.ToString(), Count));
+		}
+
+		// Validate card type is Resource
+		if (CardDatabase)
+		{
+			const FGCGCardData* CardData = CardDatabase->GetCardData(CardNumber);
+			if (CardData)
+			{
+				if (CardData->CardType != EGCGCardType::Resource)
+				{
+					Result.AddError(FString::Printf(TEXT("Non-Resource card in Resource Deck: %s (Type: %s)"),
+						*CardNumber.ToString(),
+						CardData->CardType == EGCGCardType::Unit ? TEXT("Unit") :
+						CardData->CardType == EGCGCardType::Command ? TEXT("Command") :
+						CardData->CardType == EGCGCardType::Base ? TEXT("Base") : TEXT("Unknown")));
+				}
+			}
 		}
 	}
 

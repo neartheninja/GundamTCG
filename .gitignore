@@ -101,10 +101,17 @@ nul
 
 # One Piece TCG Legacy Assets (Prevent accidental re-adds)
 Content/Cards/OP*/
+Content/Cards/OP*.uasset
 Content/Cards/EB*/
 Content/Cards/ST*/
 Content/Cards/PRB*/
 Content/Cards/Don/
+
+# Test Files
+test.txt
+*Test*.csv
+*_Test.uasset
+TestCards.csv
 
 # Reference Documentation (Store externally or in wiki)
 Content/ref docs/

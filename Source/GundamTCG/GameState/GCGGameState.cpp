@@ -21,6 +21,11 @@ AGCGGameState::AGCGGameState()
 	// Initialize combat tracking
 	bAttackInProgress = false;
 
+	// Initialize priority system (Section 9)
+	PriorityPlayerID = -1;
+	LastPassedPlayerID = -1;
+	bInActionStep = false;
+
 	// Initialize team battle
 	bIsTeamBattle = false;
 	TeamA.TeamID = 0;
@@ -50,6 +55,11 @@ void AGCGGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLif
 	// Replicate combat tracking
 	DOREPLIFETIME(AGCGGameState, bAttackInProgress);
 	DOREPLIFETIME(AGCGGameState, CurrentAttack);
+
+	// Replicate priority system (Section 9)
+	DOREPLIFETIME(AGCGGameState, PriorityPlayerID);
+	DOREPLIFETIME(AGCGGameState, LastPassedPlayerID);
+	DOREPLIFETIME(AGCGGameState, bInActionStep);
 
 	// Replicate team battle
 	DOREPLIFETIME(AGCGGameState, bIsTeamBattle);
@@ -118,6 +128,32 @@ bool AGCGGameState::IsPlayerActive(int32 PlayerID) const
 	{
 		// In 1v1, check if this specific player is active
 		return ActivePlayerID == PlayerID;
+	}
+}
+
+int32 AGCGGameState::GetStandbyPlayerID() const
+{
+	// Rule 9-2: Standby player is the opponent of the active player
+	// In 1v1: If active is 1, standby is 2 (and vice versa)
+	// In 2v2: Returns first player from opposing team
+
+	if (bIsTeamBattle)
+	{
+		// Get active team
+		const FGCGTeamInfo* ActiveTeam = GetTeamForPlayer(ActivePlayerID);
+		if (!ActiveTeam)
+		{
+			return -1;
+		}
+
+		// Return first player from opposing team
+		const FGCGTeamInfo* OpposingTeam = (ActiveTeam->TeamID == TeamA.TeamID) ? &TeamB : &TeamA;
+		return OpposingTeam->PlayerIDs.Num() > 0 ? OpposingTeam->PlayerIDs[0] : -1;
+	}
+	else
+	{
+		// 1v1: Simple opponent logic
+		return (ActivePlayerID == 1) ? 2 : 1;
 	}
 }
 

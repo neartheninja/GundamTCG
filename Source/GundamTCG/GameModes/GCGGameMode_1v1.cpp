@@ -11,6 +11,7 @@
 #include "GundamTCG/Subsystems/GCGEffectSubsystem.h"
 #include "GundamTCG/Subsystems/GCGLinkUnitSubsystem.h"
 #include "GundamTCG/Subsystems/GCGCardDatabase.h"
+#include "GundamTCG/Subsystems/GCGComprehensiveRulesSubsystem.h"
 #include "TimerManager.h"
 #include "Engine/World.h"
 
@@ -60,7 +61,12 @@ void AGCGGameMode_1v1::InitializeGame()
 	GCGGameState->TurnNumber = 0;
 	GCGGameState->CurrentPhase = EGCGTurnPhase::NotStarted;
 	GCGGameState->bIsTeamBattle = false;
-	GCGGameState->ActivePlayerID = 0; // Player 1 goes first by default
+
+	// FAQ Q9: Randomize first player (rock-paper-scissors)
+	// For automated implementation, use random selection
+	GCGGameState->ActivePlayerID = FMath::RandRange(0, 1);
+	UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::InitializeGame - Random first player selected: Player %d"),
+		GCGGameState->ActivePlayerID);
 
 	// NOTE: Deck setup must be called externally after deck selection
 	// Once decks are set up, the following initialization sequence applies:
@@ -89,7 +95,32 @@ void AGCGGameMode_1v1::InitializeGame()
 					PlayerState->GetPlayerID(), CardsDrawn);
 			}
 		}
+
+		// FAQ Q10: Mulligan system - Allow each player to redraw starting hand once
+		// TODO: This should be interactive in the actual game
+		// For now, we'll add the infrastructure but skip automatic mulligan
+		// In a full implementation, this would:
+		// 1. Show initial hand to each player
+		// 2. Allow each player to choose whether to mulligan
+		// 3. If yes, shuffle hand back into deck and draw 5 new cards
+		// 4. Only allowed once per player at game start
+
+		UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::InitializeGame - Mulligan phase would occur here (not implemented)"));
 	}
+
+	// Setup EX Base for both players
+	SetupEXBase(0);
+	SetupEXBase(1);
+
+	// Setup shields for both players
+	SetupPlayerShields(0);
+	SetupPlayerShields(1);
+
+	// Setup EX Resource for Player 2 (second player advantage)
+	int32 SecondPlayerID = (GCGGameState->ActivePlayerID == 0) ? 1 : 0;
+	SetupEXResource(SecondPlayerID);
+	UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::InitializeGame - Player %d (second player) receives 1 EX Resource"),
+		SecondPlayerID);
 
 	UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::InitializeGame - Game initialized, ready to start first turn"));
 
@@ -425,11 +456,14 @@ void AGCGGameMode_1v1::ExecuteEndPhase()
 
 	UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::ExecuteEndPhase - Executing End Phase"));
 
-	// Action Step: Action timing (Commands, Activate・Action abilities)
+	// Rule 7-4-1: Action Step (Commands, Activate・Action abilities)
 	GCGGameState->CurrentEndPhaseStep = EGCGEndPhaseStep::ActionStep;
-	// TODO: Allow Action timing cards/abilities (Phase 8: Effect System)
+	ExecuteActionStep();
+	// Note: Action Step is async (waits for player input via UI)
+	// EndActionStep() will be called when both players pass
+	// For now, we continue execution immediately (UI integration pending)
 
-	// End Step: "At end of turn" effects trigger
+	// Rule 7-4-2: End Step - "At end of turn" effects trigger
 	GCGGameState->CurrentEndPhaseStep = EGCGEndPhaseStep::EndStep;
 
 	// Trigger EndOfTurn effects (Phase 8)
@@ -513,14 +547,110 @@ void AGCGGameMode_1v1::ExecuteEndPhase()
 
 // ===== GAME FLOW CONTROL =====
 
+void AGCGGameMode_1v1::PerformRulesManagement()
+{
+	// Comprehensive Rules Section 11: Rules Management
+	// Automatic state-based actions that occur when conditions are met
+
+	UE_LOG(LogTemp, Verbose, TEXT("AGCGGameMode_1v1::PerformRulesManagement - Performing rules management"));
+
+	TArray<AGCGPlayerState*> AllPlayerStates = GetAllPlayerStates();
+	for (AGCGPlayerState* PlayerState : AllPlayerStates)
+	{
+		if (!PlayerState || PlayerState->bHasLost)
+		{
+			continue;
+		}
+
+		int32 PlayerID = PlayerState->GetPlayerID();
+
+		// Rule 11-2: Check defeat conditions
+		if (CheckDefeatConditions(PlayerID))
+		{
+			// Mark player as lost
+			PlayerState->bHasLost = true;
+
+			UE_LOG(LogTemp, Warning, TEXT("AGCGGameMode_1v1::PerformRulesManagement - Player %d meets defeat conditions"),
+				PlayerID);
+
+			// Call Blueprint event
+			PlayerState->OnPlayerLost();
+
+			// End game with opponent as winner
+			int32 OpponentID = GetNextPlayerID(PlayerID);
+			EndGame(OpponentID);
+			return;
+		}
+
+		// Rule 11-4: Enforce Battle Area limit (max 6 Units)
+		EnforceBattleAreaLimit(PlayerState);
+
+		// Rule 11-5: Enforce Base Section limit (max 1 Base)
+		EnforceBaseSectionLimit(PlayerState);
+	}
+
+	// Rule 11-3: Destruction management (0 HP) is handled by combat subsystem
+}
+
+bool AGCGGameMode_1v1::CheckDefeatConditions(int32 PlayerID) const
+{
+	// Comprehensive Rules 1-2-2: Defeat Conditions
+	AGCGPlayerState* PlayerState = GetPlayerStateByID(PlayerID);
+	if (!PlayerState)
+	{
+		return false;
+	}
+
+	// 1-2-2-1: Battle damage with no shields
+	// (This is checked in combat system when damage is dealt)
+	// The player is defeated if they would receive battle damage while having 0 shields
+
+	// 1-2-2-2: No cards remaining in deck
+	// Player is defeated if they have no cards in their main deck
+	if (PlayerState->GetDeckSize() == 0)
+	{
+		UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::CheckDefeatConditions - Player %d deck is empty"),
+			PlayerID);
+		return true;
+	}
+
+	return false;
+}
+
+void AGCGGameMode_1v1::ProcessPlayerConcession(int32 PlayerID)
+{
+	// Comprehensive Rules 1-2-4: Player Concession
+	// 1-2-5: Concession cannot be forced by card effects
+
+	UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::ProcessPlayerConcession - Player %d has conceded"),
+		PlayerID);
+
+	AGCGPlayerState* PlayerState = GetPlayerStateByID(PlayerID);
+	if (!PlayerState)
+	{
+		UE_LOG(LogTemp, Error, TEXT("AGCGGameMode_1v1::ProcessPlayerConcession - Player state not found"));
+		return;
+	}
+
+	// Mark player as lost
+	PlayerState->bHasLost = true;
+
+	// Call Blueprint event
+	PlayerState->OnPlayerLost();
+
+	// End game immediately with opponent as winner
+	int32 OpponentID = GetNextPlayerID(PlayerID);
+	EndGame(OpponentID);
+
+	UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::ProcessPlayerConcession - Game ended, Player %d wins by concession"),
+		OpponentID);
+}
+
 void AGCGGameMode_1v1::CheckVictoryConditions()
 {
-	// TODO: Implement victory condition checks (Phase 3: Zone Management)
-	// Victory conditions:
-	// 1. Player takes damage when they have no shields → they lose
-	// 2. Player must draw but deck is empty → they lose
-
-	UE_LOG(LogTemp, Verbose, TEXT("AGCGGameMode_1v1::CheckVictoryConditions - Checking victory conditions"));
+	// Deprecated - Use PerformRulesManagement() instead
+	UE_LOG(LogTemp, Warning, TEXT("AGCGGameMode_1v1::CheckVictoryConditions - DEPRECATED: Use PerformRulesManagement() instead"));
+	PerformRulesManagement();
 }
 
 void AGCGGameMode_1v1::EndGame(int32 WinnerPlayerID)
@@ -541,6 +671,160 @@ void AGCGGameMode_1v1::EndGame(int32 WinnerPlayerID)
 
 	// Call Blueprint event
 	GCGGameState->OnGameEnded(WinnerPlayerID);
+}
+
+// ===== SECTION 11: RULES MANAGEMENT (ZONE LIMITS) =====
+
+void AGCGGameMode_1v1::EnforceBattleAreaLimit(AGCGPlayerState* PlayerState)
+{
+	// Rule 11-4-1: Battle area limited to 6 Units at most
+	// Rule 11-4-2: If over limit, player chooses Unit to trash
+
+	if (!PlayerState)
+	{
+		return;
+	}
+
+	int32 PlayerID = PlayerState->GetPlayerID();
+
+	// Check if over limit
+	while (PlayerState->BattleArea.Num() > 6)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[Rules Management] Player %d Battle Area over limit (%d/6) - choosing Unit to remove"),
+			PlayerID, PlayerState->BattleArea.Num());
+
+		// Request player to choose Unit to remove
+		int32 RemovedUnitID = RequestChooseUnitToRemove(PlayerID);
+
+		if (RemovedUnitID == 0)
+		{
+			// Player failed to choose - remove first Unit (should not happen in normal gameplay)
+			UE_LOG(LogTemp, Error, TEXT("[Rules Management] Player %d failed to choose Unit - auto-removing first Unit"),
+				PlayerID);
+			RemovedUnitID = PlayerState->BattleArea[0].InstanceID;
+		}
+
+		// Find the Unit
+		FGCGCardInstance* RemovedUnit = nullptr;
+		for (FGCGCardInstance& Unit : PlayerState->BattleArea)
+		{
+			if (Unit.InstanceID == RemovedUnitID)
+			{
+				RemovedUnit = &Unit;
+				break;
+			}
+		}
+
+		if (RemovedUnit)
+		{
+			// Rule 11-4-2-1: NOT considered destroyed (no "On Destroyed" effects)
+			RemovedUnit->bWasDestroyed = false;
+			RemovedUnit->CurrentZone = EGCGCardZone::Trash;
+
+			// Move to trash
+			PlayerState->Trash.Add(*RemovedUnit);
+			PlayerState->BattleArea.RemoveAll([RemovedUnitID](const FGCGCardInstance& Card) {
+				return Card.InstanceID == RemovedUnitID;
+			});
+
+			UE_LOG(LogTemp, Log, TEXT("[Rules Management] Removed Unit %s from Battle Area (not destroyed)"),
+				*RemovedUnit->CardName.ToString());
+		}
+	}
+}
+
+void AGCGGameMode_1v1::EnforceBaseSectionLimit(AGCGPlayerState* PlayerState)
+{
+	// Rule 11-5-1: Base section limited to 1 Base at most
+	// Rule 11-5-2: If over limit, player chooses Base to trash
+
+	if (!PlayerState)
+	{
+		return;
+	}
+
+	int32 PlayerID = PlayerState->GetPlayerID();
+
+	// Check if over limit
+	while (PlayerState->BaseSection.Num() > 1)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[Rules Management] Player %d Base Section over limit (%d/1) - choosing Base to remove"),
+			PlayerID, PlayerState->BaseSection.Num());
+
+		// Request player to choose Base to remove
+		int32 RemovedBaseID = RequestChooseBaseToRemove(PlayerID);
+
+		if (RemovedBaseID == 0)
+		{
+			// Player failed to choose - remove first Base (should not happen in normal gameplay)
+			UE_LOG(LogTemp, Error, TEXT("[Rules Management] Player %d failed to choose Base - auto-removing first Base"),
+				PlayerID);
+			RemovedBaseID = PlayerState->BaseSection[0].InstanceID;
+		}
+
+		// Find the Base
+		FGCGCardInstance* RemovedBase = nullptr;
+		for (FGCGCardInstance& Base : PlayerState->BaseSection)
+		{
+			if (Base.InstanceID == RemovedBaseID)
+			{
+				RemovedBase = &Base;
+				break;
+			}
+		}
+
+		if (RemovedBase)
+		{
+			// Rule 11-5-2-1: NOT considered destroyed (no "On Destroyed" effects)
+			RemovedBase->bWasDestroyed = false;
+			RemovedBase->CurrentZone = EGCGCardZone::Trash;
+
+			// Move to trash
+			PlayerState->Trash.Add(*RemovedBase);
+			PlayerState->BaseSection.RemoveAll([RemovedBaseID](const FGCGCardInstance& Card) {
+				return Card.InstanceID == RemovedBaseID;
+			});
+
+			UE_LOG(LogTemp, Log, TEXT("[Rules Management] Removed Base %s from Base Section (not destroyed)"),
+				*RemovedBase->CardName.ToString());
+		}
+	}
+}
+
+int32 AGCGGameMode_1v1::RequestChooseUnitToRemove(int32 PlayerID)
+{
+	// Rule 11-4-2: Player chooses which Unit to remove from Battle Area
+	// TODO: Implement UI for player choice
+
+	AGCGPlayerState* PlayerState = GetPlayerStateByID(PlayerID);
+	if (!PlayerState || PlayerState->BattleArea.Num() == 0)
+	{
+		return 0;
+	}
+
+	// Temporary: Auto-choose first Unit
+	// In production, this should prompt the player via UI
+	UE_LOG(LogTemp, Warning, TEXT("[Rules Management] RequestChooseUnitToRemove - UI not implemented, auto-choosing first Unit"));
+
+	return PlayerState->BattleArea[0].InstanceID;
+}
+
+int32 AGCGGameMode_1v1::RequestChooseBaseToRemove(int32 PlayerID)
+{
+	// Rule 11-5-2: Player chooses which Base to remove from Base Section
+	// TODO: Implement UI for player choice
+
+	AGCGPlayerState* PlayerState = GetPlayerStateByID(PlayerID);
+	if (!PlayerState || PlayerState->BaseSection.Num() == 0)
+	{
+		return 0;
+	}
+
+	// Temporary: Auto-choose first Base
+	// In production, this should prompt the player via UI
+	UE_LOG(LogTemp, Warning, TEXT("[Rules Management] RequestChooseBaseToRemove - UI not implemented, auto-choosing first Base"));
+
+	return PlayerState->BaseSection[0].InstanceID;
 }
 
 // ===== AUTOMATIC PHASE PROGRESSION =====
@@ -1114,16 +1398,22 @@ void AGCGGameMode_1v1::SetupEXBase(int32 PlayerID)
 		return;
 	}
 
-	// Create EX Base token
-	FGCGCardInstance EXBaseToken = CreateTokenInstance(FName("EXBase"), PlayerID);
-	EXBaseToken.CurrentZone = EGCGCardZone::BaseSection;
-	EXBaseToken.bIsActive = true;
+	// Get comprehensive rules subsystem for official token creation
+	UGCGComprehensiveRulesSubsystem* RulesSubsystem = GetGameInstance()->GetSubsystem<UGCGComprehensiveRulesSubsystem>();
+	if (!RulesSubsystem)
+	{
+		UE_LOG(LogTemp, Error, TEXT("AGCGGameMode_1v1::SetupEXBase - Comprehensive rules subsystem not found"));
+		return;
+	}
+
+	// Rule 5-17-3-1: Create EX Base token (0 AP / 3 HP)
+	FGCGCardInstance EXBaseToken = RulesSubsystem->CreateEXBaseToken(PlayerID);
 
 	// Place EX Base in Base section
 	PlayerState->BaseSection.Add(EXBaseToken);
 
-	UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::SetupEXBase - Created EX Base token for Player %d (ID: %d)"),
-		PlayerID, EXBaseToken.InstanceID);
+	UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::SetupEXBase - Created EX Base token for Player %d (ID: %d, AP: %d, HP: %d)"),
+		PlayerID, EXBaseToken.InstanceID, EXBaseToken.AP, EXBaseToken.HP);
 }
 
 void AGCGGameMode_1v1::SetupEXResource(int32 PlayerID)
@@ -1146,6 +1436,75 @@ void AGCGGameMode_1v1::SetupEXResource(int32 PlayerID)
 
 	UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::SetupEXResource - Created EX Resource token for Player %d (ID: %d)"),
 		PlayerID, EXResourceToken.InstanceID);
+}
+
+bool AGCGGameMode_1v1::PerformMulligan(int32 PlayerID)
+{
+	// Get player state
+	AGCGPlayerState* PlayerState = GetPlayerStateByID(PlayerID);
+	if (!PlayerState)
+	{
+		UE_LOG(LogTemp, Error, TEXT("AGCGGameMode_1v1::PerformMulligan - Player state not found for ID %d"), PlayerID);
+		return false;
+	}
+
+	// Get zone subsystem
+	UGCGZoneSubsystem* ZoneSubsystem = GetGameInstance()->GetSubsystem<UGCGZoneSubsystem>();
+	if (!ZoneSubsystem)
+	{
+		UE_LOG(LogTemp, Error, TEXT("AGCGGameMode_1v1::PerformMulligan - Zone subsystem not found"));
+		return false;
+	}
+
+	// Save hand size
+	int32 HandSize = PlayerState->Hand.Num();
+	if (HandSize == 0)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("AGCGGameMode_1v1::PerformMulligan - Player %d has empty hand"), PlayerID);
+		return false;
+	}
+
+	UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::PerformMulligan - Player %d performing mulligan (returning %d cards)"),
+		PlayerID, HandSize);
+
+	// Rule 6-2-1-6-1: Return entire hand to BOTTOM of deck
+	// Note: Deck.Add() adds to the end (bottom) of the array
+	for (FGCGCardInstance& Card : PlayerState->Hand)
+	{
+		Card.CurrentZone = EGCGCardZone::Deck;
+		PlayerState->Deck.Add(Card); // Adds to bottom
+	}
+
+	// Clear hand
+	PlayerState->Hand.Empty();
+
+	UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::PerformMulligan - Returned %d cards to bottom of deck"), HandSize);
+
+	// Rule 6-2-1-6-1: Draw 5 new cards from TOP of deck
+	// (These will be different cards since we put the hand at the bottom)
+	TArray<FGCGCardInstance> NewHand;
+	int32 CardsDrawn = ZoneSubsystem->DrawTopCards(EGCGCardZone::Deck, PlayerState, 5, NewHand);
+
+	if (CardsDrawn != 5)
+	{
+		UE_LOG(LogTemp, Error, TEXT("AGCGGameMode_1v1::PerformMulligan - Could only draw %d cards (expected 5)"), CardsDrawn);
+	}
+
+	// Move cards to hand
+	for (FGCGCardInstance& Card : NewHand)
+	{
+		Card.CurrentZone = EGCGCardZone::Hand;
+		PlayerState->Hand.Add(Card);
+	}
+
+	UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::PerformMulligan - Drew new hand (%d cards)"), CardsDrawn);
+
+	// Rule 6-2-1-6-1: THEN shuffle deck
+	// (Now the old hand and new cards are all shuffled together)
+	ZoneSubsystem->ShuffleZone(EGCGCardZone::Deck, PlayerState);
+	UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::PerformMulligan - Shuffled deck after mulligan"));
+
+	return CardsDrawn == 5;
 }
 
 // ===== INTERNAL HELPERS =====
@@ -1224,4 +1583,155 @@ void AGCGGameMode_1v1::CleanupTurnEffects()
 	// This will remove all "UntilEndOfTurn" modifiers and temporary effects
 
 	UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::CleanupTurnEffects - Cleaning up turn effects"));
+}
+
+// ===== SECTION 9: ACTION STEP =====
+
+void AGCGGameMode_1v1::ExecuteActionStep()
+{
+	AGCGGameState* GCGGameState = GetGCGGameState();
+	if (!GCGGameState)
+	{
+		return;
+	}
+
+	UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::ExecuteActionStep - Starting Action Step"));
+
+	// Rule 9-1: Enter Action Step state
+	GCGGameState->bInActionStep = true;
+
+	// Rule 9-2: Standby player (opponent) gets priority first
+	int32 StandbyPlayerID = GCGGameState->GetStandbyPlayerID();
+	GCGGameState->PriorityPlayerID = StandbyPlayerID;
+	GCGGameState->LastPassedPlayerID = -1; // Reset pass tracking
+
+	UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::ExecuteActionStep - Priority to Standby Player %d (Active Player is %d)"),
+		StandbyPlayerID, GCGGameState->ActivePlayerID);
+
+	// TODO: Trigger UI event to prompt standby player for action
+	// This is where the game would pause and wait for player input
+	// Player can:
+	// 1. Activate a 【Action】 Command card
+	// 2. Activate a 【Activate･Action】 ability
+	// 3. Pass priority
+
+	// For now, we'll continue execution (in a real game, this would be async)
+	// UI will call ProcessActionStepAction() when player makes a choice
+}
+
+bool AGCGGameMode_1v1::ProcessActionStepAction(int32 PlayerID, EGCGPlayerActionType ActionType, int32 CardInstanceID)
+{
+	AGCGGameState* GCGGameState = GetGCGGameState();
+	if (!GCGGameState)
+	{
+		return false;
+	}
+
+	// Validate we're in an Action Step
+	if (!GCGGameState->bInActionStep)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("AGCGGameMode_1v1::ProcessActionStepAction - Not in Action Step"));
+		return false;
+	}
+
+	// Validate it's this player's priority
+	if (PlayerID != GCGGameState->PriorityPlayerID)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("AGCGGameMode_1v1::ProcessActionStepAction - Player %d does not have priority (priority is with %d)"),
+			PlayerID, GCGGameState->PriorityPlayerID);
+		return false;
+	}
+
+	if (ActionType == EGCGPlayerActionType::PassPriority)
+	{
+		UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::ProcessActionStepAction - Player %d passed priority"), PlayerID);
+
+		// Check if this is the second consecutive pass
+		if (GCGGameState->LastPassedPlayerID != -1 && GCGGameState->LastPassedPlayerID != PlayerID)
+		{
+			// Rule 9-5: Both players passed consecutively -> End Action Step
+			UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::ProcessActionStepAction - Both players passed, ending Action Step"));
+			EndActionStep();
+			return true;
+		}
+
+		// First pass or same player passing again
+		GCGGameState->LastPassedPlayerID = PlayerID;
+
+		// Rule 9-3-1 / 9-4-1: Pass priority to other player
+		int32 NextPlayerID = (PlayerID == GCGGameState->ActivePlayerID)
+			? GCGGameState->GetStandbyPlayerID()
+			: GCGGameState->ActivePlayerID;
+
+		GCGGameState->PriorityPlayerID = NextPlayerID;
+
+		UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::ProcessActionStepAction - Priority passed to Player %d"), NextPlayerID);
+
+		// TODO: Trigger UI event to prompt next player for action
+		return true;
+	}
+	else if (ActionType == EGCGPlayerActionType::ActivateAbility)
+	{
+		UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::ProcessActionStepAction - Player %d activating ability on card %d"),
+			PlayerID, CardInstanceID);
+
+		// TODO: Implement ability activation (requires Effect System - Section 10)
+		// For now, just acknowledge the action
+
+		// Rule 9-3 / 9-4: After activation, reset pass counter
+		GCGGameState->LastPassedPlayerID = -1;
+
+		// Priority alternates: return to standby player
+		int32 NextPlayerID = (PlayerID == GCGGameState->ActivePlayerID)
+			? GCGGameState->GetStandbyPlayerID()
+			: GCGGameState->ActivePlayerID;
+
+		GCGGameState->PriorityPlayerID = NextPlayerID;
+
+		UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::ProcessActionStepAction - Ability activated, priority to Player %d"), NextPlayerID);
+
+		// TODO: Trigger UI event to prompt next player for action
+		return true;
+	}
+
+	UE_LOG(LogTemp, Warning, TEXT("AGCGGameMode_1v1::ProcessActionStepAction - Invalid action type"));
+	return false;
+}
+
+void AGCGGameMode_1v1::EndActionStep()
+{
+	AGCGGameState* GCGGameState = GetGCGGameState();
+	if (!GCGGameState)
+	{
+		return;
+	}
+
+	UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::EndActionStep - Action Step ended"));
+
+	// Clear Action Step state
+	GCGGameState->bInActionStep = false;
+	GCGGameState->PriorityPlayerID = -1;
+	GCGGameState->LastPassedPlayerID = -1;
+
+	// Determine where to continue based on context
+	if (GCGGameState->bAttackInProgress)
+	{
+		// Rule 8-4: Combat Action Step -> proceed to Damage Step
+		UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::EndActionStep - Proceeding to Damage Step"));
+
+		UGCGCombatSubsystem* CombatSubsystem = GetGameInstance()->GetSubsystem<UGCGCombatSubsystem>();
+		if (CombatSubsystem)
+		{
+			// Continue combat flow (Damage Step)
+			// TODO: Call ExecuteDamageStep() method (currently handled inline in ResolveAttack)
+		}
+	}
+	else if (GCGGameState->CurrentPhase == EGCGTurnPhase::EndPhase)
+	{
+		// Rule 7-4-2: End Phase Action Step -> proceed to End Step
+		UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::EndActionStep - Proceeding to End Step"));
+
+		// Continue End Phase execution
+		// The ExecuteEndPhase() method will handle the rest
+	}
 }
