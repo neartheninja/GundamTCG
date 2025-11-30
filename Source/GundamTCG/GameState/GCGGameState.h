@@ -103,6 +103,28 @@ public:
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Combat")
 	FGCGAttackData CurrentAttack;
 
+	// ===== PRIORITY SYSTEM (ACTION STEPS) =====
+
+	/**
+	 * Rule 9-2: Player who currently has priority in Action Step
+	 * -1 = No Action Step active
+	 */
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Priority")
+	int32 PriorityPlayerID;
+
+	/**
+	 * Rule 9-4-2: Player who passed priority last (for consecutive pass detection)
+	 * -1 = No one has passed yet / reset after action
+	 */
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Priority")
+	int32 LastPassedPlayerID;
+
+	/**
+	 * Rule 9-1: Is there currently an Action Step in progress?
+	 */
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Priority")
+	bool bInActionStep;
+
 	// ===== TEAM BATTLE (2v2) =====
 
 	/**
@@ -160,6 +182,13 @@ public:
 	 */
 	UFUNCTION(BlueprintPure, Category = "Turn")
 	bool IsPlayerActive(int32 PlayerID) const;
+
+	/**
+	 * Rule 9-2: Get the standby player (non-active player / opponent)
+	 * @return The standby player's ID (opponent of active player)
+	 */
+	UFUNCTION(BlueprintPure, Category = "Priority")
+	int32 GetStandbyPlayerID() const;
 
 	/**
 	 * Check if a player is on the active team (for team battle)

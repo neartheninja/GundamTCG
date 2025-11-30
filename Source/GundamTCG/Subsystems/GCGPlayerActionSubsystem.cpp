@@ -161,13 +161,22 @@ FGCGPlayerActionResult UGCGPlayerActionSubsystem::CanPlayCard(const FGCGCardInst
 		return TimingResult;
 	}
 
-	// FAQ Q21-Q22: Check Level requirement (total resources including EX Resources)
-	int32 PlayerLevel = PlayerState->GetTotalResourceCount();
-	if (CardInstance.Level > PlayerLevel)
+	// FAQ Q21-Q22: Check level requirement
+	// Get card data to check level requirement
+	if (CardDatabase)
 	{
-		return FGCGPlayerActionResult(false,
-			FString::Printf(TEXT("Level too low (card is Lv.%d, you are Lv.%d)"),
-				CardInstance.Level, PlayerLevel));
+		const FGCGCardData* CardData = CardDatabase->GetCardData(CardInstance.CardNumber);
+		if (CardData)
+		{
+			// Player's Lv must be >= Card's Level requirement
+			int32 PlayerLv = PlayerState->GetPlayerLv();
+			if (PlayerLv < CardData->Level)
+			{
+				return FGCGPlayerActionResult(false,
+					FString::Printf(TEXT("Insufficient Lv (card requires Lv %d, you have Lv %d)"),
+						CardData->Level, PlayerLv));
+			}
+		}
 	}
 
 	// Check cost
@@ -211,18 +220,26 @@ bool UGCGPlayerActionSubsystem::PayCost(int32 Cost, AGCGPlayerState* PlayerState
 	// Check if player can pay
 	if (!CanPayCost(Cost, PlayerState))
 	{
-		UE_LOG(LogTemp, Warning, TEXT("UGCGPlayerActionSubsystem::PayCost - Cannot pay cost %d (have %d active resources)"),
-			Cost, PlayerState->GetActiveResourceCount());
+		UE_LOG(LogTemp, Warning, TEXT("UGCGPlayerActionSubsystem::PayCost - Cannot pay cost %d (have %d resources + %d EX)"),
+			Cost, PlayerState->GetActiveResourceCount(), PlayerState->GetEXResourceCount());
 		return false;
 	}
 
-	// Rest resources to pay cost
+	// Pay cost: First rest regular active resources, then remove EX Resources
 	int32 RemainingCost = Cost;
+
+	// Phase 1: Rest regular active resources
 	for (FGCGCardInstance& Resource : PlayerState->ResourceArea)
 	{
 		if (RemainingCost <= 0)
 		{
 			break;
+		}
+
+		// Skip EX Resources in this phase
+		if (Resource.bIsToken && Resource.TokenType == FName("EXResource"))
+		{
+			continue;
 		}
 
 		if (Resource.bIsActive)
@@ -232,6 +249,28 @@ bool UGCGPlayerActionSubsystem::PayCost(int32 Cost, AGCGPlayerState* PlayerState
 			UE_LOG(LogTemp, Verbose, TEXT("UGCGPlayerActionSubsystem::PayCost - Rested resource %s (ID: %d)"),
 				*Resource.CardName.ToString(), Resource.InstanceID);
 		}
+	}
+
+	// Phase 2: Remove EX Resources if needed
+	TArray<int32> EXResourcesToRemove;
+	for (int32 i = 0; i < PlayerState->ResourceArea.Num() && RemainingCost > 0; i++)
+	{
+		FGCGCardInstance& Resource = PlayerState->ResourceArea[i];
+		if (Resource.bIsToken && Resource.TokenType == FName("EXResource"))
+		{
+			EXResourcesToRemove.Add(i);
+			RemainingCost--;
+			UE_LOG(LogTemp, Verbose, TEXT("UGCGPlayerActionSubsystem::PayCost - Marked EX Resource for removal (ID: %d)"),
+				Resource.InstanceID);
+		}
+	}
+
+	// Remove EX Resources (in reverse order to maintain indices)
+	for (int32 i = EXResourcesToRemove.Num() - 1; i >= 0; i--)
+	{
+		int32 Index = EXResourcesToRemove[i];
+		UE_LOG(LogTemp, Log, TEXT("UGCGPlayerActionSubsystem::PayCost - Removed EX Resource from Resource Area"));
+		PlayerState->ResourceArea.RemoveAt(Index);
 	}
 
 	if (RemainingCost > 0)
@@ -251,7 +290,9 @@ bool UGCGPlayerActionSubsystem::CanPayCost(int32 Cost, AGCGPlayerState* PlayerSt
 		return false;
 	}
 
-	return PlayerState->GetActiveResourceCount() >= Cost;
+	// Can pay with active resources + EX Resources
+	int32 AvailableResources = PlayerState->GetActiveResourceCount() + PlayerState->GetEXResourceCount();
+	return AvailableResources >= Cost;
 }
 
 // ===== RESOURCE PLACEMENT =====

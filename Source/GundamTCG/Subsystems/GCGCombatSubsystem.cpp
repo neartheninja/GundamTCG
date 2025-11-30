@@ -27,7 +27,7 @@ void UGCGCombatSubsystem::Deinitialize()
 // ===== ATTACK DECLARATION =====
 
 FGCGCombatResult UGCGCombatSubsystem::DeclareAttack(int32 AttackerInstanceID,
-	AGCGPlayerState* AttackingPlayer, AGCGPlayerState* DefendingPlayer, AGCGGameState* GameState)
+	AGCGPlayerState* AttackingPlayer, AGCGPlayerState* DefendingPlayer, AGCGGameState* GameState, int32 TargetUnitInstanceID)
 {
 	if (!AttackingPlayer || !DefendingPlayer || !GameState)
 	{
@@ -54,12 +54,41 @@ FGCGCombatResult UGCGCombatSubsystem::DeclareAttack(int32 AttackerInstanceID,
 		return ValidationResult;
 	}
 
+	// Rule 8-2-1: Validate attack target (player or rested Unit)
+	bool bTargetingPlayer = (TargetUnitInstanceID == 0);
+
+	if (!bTargetingPlayer)
+	{
+		// Targeting a specific Unit - must be rested
+		FGCGCardInstance TargetUnit;
+		EGCGCardZone TargetZone;
+		if (!DefendingPlayer->FindCardByInstanceID(TargetUnitInstanceID, TargetUnit, TargetZone))
+		{
+			return FGCGCombatResult(false, TEXT("Target Unit not found"));
+		}
+
+		if (TargetZone != EGCGCardZone::BattleArea)
+		{
+			return FGCGCombatResult(false, TEXT("Target Unit is not in Battle Area"));
+		}
+
+		// Rule 8-2-1: Can only attack rested Units
+		if (TargetUnit.bIsActive)
+		{
+			return FGCGCombatResult(false, TEXT("Target Unit must be rested (inactive)"));
+		}
+
+		UE_LOG(LogTemp, Log, TEXT("UGCGCombatSubsystem::DeclareAttack - Targeting rested Unit: %s (ID: %d)"),
+			*TargetUnit.CardName.ToString(), TargetUnitInstanceID);
+	}
+
 	// Create attack declaration
 	FGCGAttackDeclaration Attack;
 	Attack.AttackerInstanceID = AttackerInstanceID;
 	Attack.AttackingPlayerID = AttackingPlayer->GetPlayerID();
 	Attack.DefendingPlayerID = DefendingPlayer->GetPlayerID();
-	Attack.bTargetingBase = true; // Always target base initially
+	Attack.bTargetingBase = bTargetingPlayer; // True if attacking player, false if attacking Unit
+	Attack.TargetUnitInstanceID = TargetUnitInstanceID; // 0 if targeting player
 	Attack.BlockerInstanceID = 0; // No blocker yet
 	Attack.bResolved = false;
 
@@ -78,9 +107,18 @@ FGCGCombatResult UGCGCombatSubsystem::DeclareAttack(int32 AttackerInstanceID,
 		}
 	}
 
-	UE_LOG(LogTemp, Log, TEXT("UGCGCombatSubsystem::DeclareAttack - Player %d declared attack with %s (ID: %d) on Player %d"),
-		AttackingPlayer->GetPlayerID(), *AttackerInstance.CardName.ToString(), AttackerInstanceID,
-		DefendingPlayer->GetPlayerID());
+	if (bTargetingPlayer)
+	{
+		UE_LOG(LogTemp, Log, TEXT("UGCGCombatSubsystem::DeclareAttack - Player %d declared attack with %s (ID: %d) on Player %d"),
+			AttackingPlayer->GetPlayerID(), *AttackerInstance.CardName.ToString(), AttackerInstanceID,
+			DefendingPlayer->GetPlayerID());
+	}
+	else
+	{
+		UE_LOG(LogTemp, Log, TEXT("UGCGCombatSubsystem::DeclareAttack - Player %d declared attack with %s (ID: %d) on enemy Unit (ID: %d)"),
+			AttackingPlayer->GetPlayerID(), *AttackerInstance.CardName.ToString(), AttackerInstanceID,
+			TargetUnitInstanceID);
+	}
 
 	// TODO: Trigger "On Attack" effects (Phase 8)
 
@@ -160,6 +198,23 @@ FGCGCombatResult UGCGCombatSubsystem::DeclareBlocker(int32 AttackIndex, int32 Bl
 		return ValidationResult;
 	}
 
+	// Rule 13-1-6-1: High-Maneuver prevents Blocker activation
+	// Find attacker to check for High-Maneuver keyword
+	AGCGPlayerState* AttackingPlayer = GameState->GetPlayerByID(Attack.AttackingPlayerID);
+	if (AttackingPlayer)
+	{
+		FGCGCardInstance AttackerInstance;
+		EGCGCardZone AttackerZone;
+		if (AttackingPlayer->FindCardByInstanceID(Attack.AttackerInstanceID, AttackerInstance, AttackerZone))
+		{
+			// Check if attacker has High-Maneuver
+			if (HasKeyword(AttackerInstance, EGCGKeyword::HighManeuver))
+			{
+				return FGCGCombatResult(false, TEXT("Cannot block - attacker has High-Maneuver"));
+			}
+		}
+	}
+
 	// Assign blocker
 	Attack.BlockerInstanceID = BlockerInstanceID;
 	Attack.bTargetingBase = false; // Attack is now blocked
@@ -203,7 +258,11 @@ FGCGCombatResult UGCGCombatSubsystem::CanBlock(const FGCGCardInstance& BlockerIn
 		return FGCGCombatResult(false, TEXT("Unit is rested and does not have Blocker keyword"));
 	}
 
-	// TODO: Check for High-Maneuver keyword on attacker (can't be blocked) - Phase 7
+	// Rule 13-1-6-1: High-Maneuver prevents Blocker activation
+	// Need to check if attacker has High-Maneuver (requires attacker instance)
+	// NOTE: This validation needs attacker instance, which requires GameState access
+	// Validation should be done in DeclareBlocker where we have full context
+	// (Moved to DeclareBlocker method - see line ~195)
 
 	return FGCGCombatResult(true);
 }
@@ -419,7 +478,17 @@ bool UGCGCombatSubsystem::DealDamageToPlayer(int32 Damage, AGCGPlayerState* Defe
 		return false;
 	}
 
-	// No shields - damage goes to Base
+	// Comprehensive Rules 1-2-2-1: Battle damage with no shields = defeat
+	// "When either player receives battle damage from a Unit while they have no cards
+	// in their shield area, that player fulfills the conditions for defeat."
+	UE_LOG(LogTemp, Warning, TEXT("UGCGCombatSubsystem::DealDamageToPlayer - Player %d took battle damage with NO SHIELDS - DEFEAT"),
+		DefendingPlayer->GetPlayerID());
+
+	// Mark player as having met defeat conditions
+	// (Actual loss will be processed during next Rules Management)
+	DefendingPlayer->bHasLost = true;
+
+	// Still apply damage to Base for tracking purposes
 	if (DefendingPlayer->BaseSection.Num() > 0)
 	{
 		FGCGCardInstance& Base = DefendingPlayer->BaseSection[0];
@@ -430,19 +499,9 @@ bool UGCGCombatSubsystem::DealDamageToPlayer(int32 Damage, AGCGPlayerState* Defe
 
 		UE_LOG(LogTemp, Warning, TEXT("UGCGCombatSubsystem::DealDamageToPlayer - Player %d Base took %d damage (Total: %d/%d HP)"),
 			DefendingPlayer->GetPlayerID(), Damage, Base.CurrentDamage, Base.HP);
-
-		// Check if Base is destroyed (player loses)
-		if (Base.CurrentDamage >= Base.HP)
-		{
-			UE_LOG(LogTemp, Warning, TEXT("UGCGCombatSubsystem::DealDamageToPlayer - Player %d Base destroyed - GAME OVER"),
-				DefendingPlayer->GetPlayerID());
-
-			DefendingPlayer->bHasLost = true;
-			return true; // Player lost
-		}
 	}
 
-	return false;
+	return true; // Player lost (will be processed by Rules Management)
 }
 
 // ===== SHIELD SYSTEM =====
@@ -463,6 +522,9 @@ int32 UGCGCombatSubsystem::BreakShields(int32 Count, AGCGPlayerState* DefendingP
 	int32 ShieldsBroken = 0;
 	int32 ShieldsToBreak = FMath::Min(Count, DefendingPlayer->GetShieldCount());
 
+	// Get card database for checking Burst keyword
+	UGCGCardDatabase* CardDatabase = GetGameInstance()->GetSubsystem<UGCGCardDatabase>();
+
 	for (int32 i = 0; i < ShieldsToBreak; ++i)
 	{
 		if (DefendingPlayer->ShieldStack.Num() > 0)
@@ -471,16 +533,46 @@ int32 UGCGCombatSubsystem::BreakShields(int32 Count, AGCGPlayerState* DefendingP
 			FGCGCardInstance ShieldCard = DefendingPlayer->ShieldStack[0];
 			DefendingPlayer->ShieldStack.RemoveAt(0);
 
+			// Rule 5-10-3: Reveal shield before placing in trash
+			UE_LOG(LogTemp, Log, TEXT("UGCGCombatSubsystem::BreakShields - Shield revealed: %s (ID: %d)"),
+				*ShieldCard.CardName.ToString(), ShieldCard.InstanceID);
+
+			// Rule 5-10-3: Check for Burst keyword
+			bool bHasBurst = false;
+			if (CardDatabase)
+			{
+				const FGCGCardData* CardData = CardDatabase->GetCardData(ShieldCard.CardNumber);
+				if (CardData && CardData->Keywords.Contains(EGCGKeyword::Burst))
+				{
+					bHasBurst = true;
+
+					// Rule 5-10-3: Player decides whether to activate Burst
+					// TODO: Implement UI prompt for Burst activation (requires Effect System)
+					// For now, we log that Burst is available
+					UE_LOG(LogTemp, Warning, TEXT("UGCGCombatSubsystem::BreakShields - Shield has 【Burst】! Player %d should be prompted to activate (not yet implemented)"),
+						DefendingPlayer->GetPlayerID());
+
+					// TODO: If player chooses to activate:
+					// 1. Trigger Burst effect (UGCGEffectSubsystem::TriggerBurstEffect)
+					// 2. Wait for effect resolution
+					// 3. Then move to trash
+
+					// TEMPORARY: Auto-log for testing
+					// In full implementation, this would pause and wait for player choice
+				}
+			}
+
 			// Move shield to trash
 			ShieldCard.CurrentZone = EGCGCardZone::Trash;
 			DefendingPlayer->Trash.Add(ShieldCard);
 
 			ShieldsBroken++;
 
-			UE_LOG(LogTemp, Log, TEXT("UGCGCombatSubsystem::BreakShields - Broke shield: %s (ID: %d)"),
-				*ShieldCard.CardName.ToString(), ShieldCard.InstanceID);
-
-			// TODO: Check for Burst keyword (Phase 7)
+			if (bHasBurst)
+			{
+				UE_LOG(LogTemp, Log, TEXT("UGCGCombatSubsystem::BreakShields - Shield with Burst moved to trash: %s"),
+					*ShieldCard.CardName.ToString());
+			}
 		}
 	}
 

@@ -39,6 +39,10 @@ struct FGCGAttackDeclaration
 	UPROPERTY(BlueprintReadWrite)
 	bool bTargetingBase;
 
+	/** Rule 8-2-1: Target rested Unit instance ID (0 if targeting player) */
+	UPROPERTY(BlueprintReadWrite)
+	int32 TargetUnitInstanceID;
+
 	/** Blocker instance ID (0 if unblocked) */
 	UPROPERTY(BlueprintReadWrite)
 	int32 BlockerInstanceID;
@@ -52,6 +56,7 @@ struct FGCGAttackDeclaration
 		, AttackingPlayerID(-1)
 		, DefendingPlayerID(-1)
 		, bTargetingBase(true)
+		, TargetUnitInstanceID(0)
 		, BlockerInstanceID(0)
 		, bResolved(false)
 	{}
@@ -141,17 +146,18 @@ public:
 	// ===== ATTACK DECLARATION =====
 
 	/**
-	 * Declare an attack
+	 * Rule 8-2-1: Declare an attack (target player or rested Unit)
 	 * @param AttackerInstanceID The attacking unit
 	 * @param AttackingPlayer The player declaring the attack
 	 * @param DefendingPlayer The defending player
 	 * @param GameState The current game state
+	 * @param TargetUnitInstanceID Optional: Target rested Unit (0 = attack player)
 	 * @return Combat result
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Combat")
 	FGCGCombatResult DeclareAttack(int32 AttackerInstanceID,
 		AGCGPlayerState* AttackingPlayer, AGCGPlayerState* DefendingPlayer,
-		AGCGGameState* GameState);
+		AGCGGameState* GameState, int32 TargetUnitInstanceID = 0);
 
 	/**
 	 * Can this unit attack?
