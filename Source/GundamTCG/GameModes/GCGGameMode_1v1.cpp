@@ -37,6 +37,100 @@ bool AGCGGameMode_1v1::CanStartGame() const
 	return PlayerStates.Num() >= 2;
 }
 
+void AGCGGameMode_1v1::SetFirstPlayer(int32 PlayerID)
+{
+	AGCGGameState* GCGGameState = GetGCGGameState();
+	if (!GCGGameState)
+	{
+		UE_LOG(LogTemp, Error, TEXT("AGCGGameMode_1v1::SetFirstPlayer - Game state is null"));
+		return;
+	}
+
+	// FAQ Q9: Winner of rock-paper-scissors chooses who goes first
+	if (PlayerID < 0 || PlayerID > 1)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("AGCGGameMode_1v1::SetFirstPlayer - Invalid player ID %d (must be 0 or 1), defaulting to 0"),
+			PlayerID);
+		PlayerID = 0;
+	}
+
+	GCGGameState->ActivePlayerID = PlayerID;
+
+	UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::SetFirstPlayer - Player %d will go first"), PlayerID);
+}
+
+bool AGCGGameMode_1v1::RequestMulligan(int32 PlayerID)
+{
+	// Get player state
+	AGCGPlayerState* PlayerState = GetPlayerStateByID(PlayerID);
+	if (!PlayerState)
+	{
+		UE_LOG(LogTemp, Error, TEXT("AGCGGameMode_1v1::RequestMulligan - Player state not found for ID %d"), PlayerID);
+		return false;
+	}
+
+	// FAQ Q10: Each player can redraw starting hand once
+	if (PlayerState->bHasMulliganed)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("AGCGGameMode_1v1::RequestMulligan - Player %d has already mulliganed"), PlayerID);
+		return false;
+	}
+
+	// Can only mulligan before turn 1 starts
+	AGCGGameState* GCGGameState = GetGCGGameState();
+	if (GCGGameState && GCGGameState->TurnNumber > 0)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("AGCGGameMode_1v1::RequestMulligan - Cannot mulligan after game has started"));
+		return false;
+	}
+
+	// Get zone subsystem
+	UGCGZoneSubsystem* ZoneSubsystem = GetGameInstance()->GetSubsystem<UGCGZoneSubsystem>();
+	if (!ZoneSubsystem)
+	{
+		UE_LOG(LogTemp, Error, TEXT("AGCGGameMode_1v1::RequestMulligan - Zone subsystem not found"));
+		return false;
+	}
+
+	int32 HandSize = PlayerState->Hand.Num();
+
+	UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::RequestMulligan - Player %d mulliganing %d cards"), PlayerID, HandSize);
+
+	// Step 1: Return entire hand to bottom of deck
+	for (int32 i = PlayerState->Hand.Num() - 1; i >= 0; i--)
+	{
+		FGCGCardInstance Card = PlayerState->Hand[i];
+		Card.CurrentZone = EGCGCardZone::Deck;
+
+		// Add to bottom of deck
+		PlayerState->Deck.Add(Card);
+
+		// Remove from hand
+		PlayerState->Hand.RemoveAt(i);
+	}
+
+	// Step 2: Draw 5 new cards from top of deck
+	TArray<FGCGCardInstance> NewHand;
+	int32 CardsDrawn = ZoneSubsystem->DrawTopCards(EGCGCardZone::Deck, PlayerState, 5, NewHand);
+
+	// Move cards to hand
+	for (FGCGCardInstance& Card : NewHand)
+	{
+		Card.CurrentZone = EGCGCardZone::Hand;
+		PlayerState->Hand.Add(Card);
+	}
+
+	// Step 3: Shuffle deck
+	ZoneSubsystem->ShuffleZone(EGCGCardZone::Deck, PlayerState);
+
+	// Mark mulligan as used
+	PlayerState->bHasMulliganed = true;
+
+	UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::RequestMulligan - Player %d drew %d cards, deck shuffled"), PlayerID, CardsDrawn);
+
+	return true;
+}
+
 void AGCGGameMode_1v1::InitializeGame()
 {
 	if (!CanStartGame())
@@ -62,11 +156,14 @@ void AGCGGameMode_1v1::InitializeGame()
 	GCGGameState->CurrentPhase = EGCGTurnPhase::NotStarted;
 	GCGGameState->bIsTeamBattle = false;
 
-	// FAQ Q9: Randomize first player (rock-paper-scissors)
-	// For automated implementation, use random selection
-	GCGGameState->ActivePlayerID = FMath::RandRange(0, 1);
-	UE_LOG(LogTemp, Log, TEXT("AGCGGameMode_1v1::InitializeGame - Random first player selected: Player %d"),
-		GCGGameState->ActivePlayerID);
+	// FAQ Q9: ActivePlayerID should be set by SetFirstPlayer() before InitializeGame()
+	// If not set, defaults to Player 1 (ID = 0)
+	// Note: For random selection, call SetFirstPlayer(FMath::RandRange(0, 1)) before InitializeGame()
+	if (GCGGameState->ActivePlayerID < 0)
+	{
+		GCGGameState->ActivePlayerID = 0;
+		UE_LOG(LogTemp, Warning, TEXT("AGCGGameMode_1v1::InitializeGame - First player not set, defaulting to Player 1 (ID=0)"));
+	}
 
 	// NOTE: Deck setup must be called externally after deck selection
 	// Once decks are set up, the following initialization sequence applies:

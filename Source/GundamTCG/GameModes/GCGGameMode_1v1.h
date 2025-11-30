@@ -50,6 +50,24 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Game Flow")
 	bool CanStartGame() const;
 
+	/**
+	 * Set the first player (FAQ Q9)
+	 * Should be called before InitializeGame()
+	 * @param PlayerID The player who will go first (0 or 1)
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Game Flow")
+	void SetFirstPlayer(int32 PlayerID);
+
+	/**
+	 * Request mulligan (redraw starting hand) (FAQ Q10)
+	 * Each player can redraw once before turn 1 starts
+	 * Returns hand to bottom of deck, draws 5 new cards, shuffles deck
+	 * @param PlayerID The player requesting mulligan
+	 * @return True if mulligan was successful
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Game Flow")
+	bool RequestMulligan(int32 PlayerID);
+
 	// ===== TURN MANAGEMENT =====
 
 	/**

@@ -167,6 +167,13 @@ public:
 	UPROPERTY(Replicated, BlueprintReadWrite, Category = "Turn Flags")
 	bool bHasDrawnThisTurn;
 
+	/**
+	 * Has this player used their mulligan? (FAQ Q10)
+	 * Each player can redraw starting hand once
+	 */
+	UPROPERTY(Replicated, BlueprintReadWrite, Category = "Turn Flags")
+	bool bHasMulliganed;
+
 	// ===== ZONE QUERIES =====
 
 	/**
